@@ -1,0 +1,637 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Catapulta de Palito</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: bancada de trabalho — visor 3D à esquerda, passo atual à direita; abaixo, peças e ajustes. */
+:root {
+  --bg: #edf0f4;
+  --surface: #ffffff;
+  --ink: #1b2433;
+  --muted: #586276;
+  --line: #d3d9e3;
+  --band: #e8b400;
+  --band-ink: #6b5200;
+  --band-soft: #fff4cc;
+  --wood: #c99a5b;
+  --wool: #d6334a;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151d; --surface: #19202b; --ink: #e6ebf2; --muted: #98a3b6; --line: #2a3342;
+    --band: #f2c531; --band-ink: #f2c531; --band-soft: #2e2810; --wood: #d4a86c; --wool: #ef5a6e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151d; --surface: #19202b; --ink: #e6ebf2; --muted: #98a3b6; --line: #2a3342;
+  --band: #f2c531; --band-ink: #f2c531; --band-soft: #2e2810; --wood: #d4a86c; --wool: #ef5a6e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.55;
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: grid; gap: 36px;
+}
+header { display: grid; gap: 6px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(34px, 6vw, 56px); line-height: 1; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+h1 .band { color: var(--band-ink); }
+.lead { margin: 4px 0 0; max-width: 62ch; color: var(--muted); }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 24px; margin: 0 0 14px; text-wrap: balance; }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+
+.viewer { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.stage { position: relative; height: 480px; touch-action: none; }
+@media (max-width: 880px) { .stage { height: auto; aspect-ratio: 4 / 3.4; max-width: 100%; } }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.stage .hint { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--muted); pointer-events: none; }
+.stage .fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+.counters { position: absolute; top: 10px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.chip { font-family: var(--f-mono); font-size: 12px; padding: 3px 8px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chip.band { background: var(--band-soft); border-color: var(--band); color: var(--band-ink); }
+
+.controls { border-top: 1px solid var(--line); padding: 14px 16px 16px; display: grid; gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.slider { flex: 1 1 260px; display: grid; gap: 4px; min-width: 0; }
+.slider label { font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+.slider output { font-family: var(--f-mono); font-weight: 500; color: var(--band-ink); }
+input[type=range] { width: 100%; accent-color: var(--band); }
+.btn {
+  font: 700 15px/1 var(--f-body); padding: 12px 18px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.btn.primary { background: var(--band); border-color: var(--band); color: #2a2100; }
+.btn:hover { filter: brightness(1.05); }
+.btn:focus-visible, .step-btn:focus-visible, input:focus-visible { outline: 3px solid var(--band); outline-offset: 2px; }
+.readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 480px) { .readout { grid-template-columns: minmax(0, 1fr); } }
+.readout div { background: var(--bg); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.readout span { display: block; font-size: 12px; color: var(--muted); }
+.readout b { font-family: var(--f-mono); font-weight: 500; font-size: 18px; font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+
+.steps { display: grid; gap: 12px; }
+.steps ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.step-btn {
+  width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px;
+  background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 10px; color: var(--ink); font: inherit;
+}
+.step-btn .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--f-mono); font-size: 14px; border: 1.5px solid var(--line); color: var(--muted);
+}
+.step-btn .t { font-weight: 700; padding-top: 3px; }
+.step-btn .body { grid-column: 2; display: none; color: var(--ink); }
+.step-btn .body p { margin: 4px 0 0; }
+.step-btn .tag { display: inline-block; margin-top: 8px; font-family: var(--f-mono); font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--band-soft); color: var(--band-ink); border: 1px solid var(--band); }
+.step-btn.done .n { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.step-btn.active { background: var(--surface); border-color: var(--line); }
+.step-btn.active .n { background: var(--band); border-color: var(--band); color: #2a2100; }
+.step-btn.active .body { display: block; }
+.step-nav { display: flex; gap: 8px; }
+.step-nav .btn { flex: 1; }
+
+.parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 720px) { .parts { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 18px 8px; min-width: 0; }
+.card h3 { margin: 0 0 10px; font-size: 17px; }
+.plist { list-style: none; margin: 0; padding: 0; }
+.plist li { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.plist li:first-child { border-top: 0; }
+.plist .q { font-family: var(--f-mono); font-size: 14px; color: var(--band-ink); font-variant-numeric: tabular-nums; }
+.swatch { display: inline-block; width: 22px; height: 6px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+.tips { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.tip { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.tip h3 { margin: 0 0 6px; font-size: 16px; }
+.tip p { margin: 0; color: var(--muted); }
+.tip.key { border-color: var(--band); background: var(--band-soft); }
+.tip.key p { color: var(--ink); }
+
+.trouble { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 520px; }
+th, td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-size: 13px; color: var(--muted); font-weight: 700; }
+td:first-child { font-weight: 700; width: 38%; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Projeto · 7 palitos de picolé · 5 elásticos de escritório · 1 tampinha</div>
+    <h1>Catapulta de <span class="band">Palito</span></h1>
+    <p class="lead">Seis passos, uns 15 minutos. Clique em cada passo para ver a peça no modelo 3D. Arraste o modelo para girar, use a roda ou pinça para aproximar.</p>
+  </header>
+
+  <section class="bench" aria-label="Montagem">
+    <div class="viewer">
+      <div class="stage" id="stage">
+        <div class="counters">
+          <span class="chip" id="cSticks">palitos 0/7</span>
+          <span class="chip band" id="cBands">elásticos 0/5</span>
+        </div>
+        <div class="hint" id="hint">arraste para girar</div>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <div class="slider">
+            <label for="fulcrum">Distância do calço até a ponta presa <output id="fulcrumOut">3,5 cm</output></label>
+            <input type="range" id="fulcrum" min="2.5" max="7" step="0.5" value="3.5">
+          </div>
+          <button class="btn primary" id="launchBtn" type="button">Lançar bolinha</button>
+          <button class="btn" id="closeBtn" type="button">Ver de perto</button>
+        </div>
+        <div class="readout">
+          <div><span>Abertura do braço</span><b id="rOpen">–</b></div>
+          <div><span>Ângulo de saída (ideal 45°)</span><b id="rAngle">–</b></div>
+          <div><span>Alcance simulado</span><b id="rRange">–</b></div>
+        </div>
+        <p class="note">Abertura e ângulo saem da geometria real do palito (11,4 × 1 cm). O alcance é uma estimativa para comparar posições, não uma promessa: meça na mesa.</p>
+      </div>
+    </div>
+
+    <div class="steps">
+      <ol id="stepList"></ol>
+      <div class="step-nav">
+        <button class="btn" id="prevBtn" type="button">← Anterior</button>
+        <button class="btn primary" id="nextBtn" type="button">Próximo →</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hParts">
+    <h2 id="hParts">Para onde vai cada peça</h2>
+    <div class="parts">
+      <div class="card">
+        <h3>7 palitos</h3>
+        <ul class="plist">
+          <li><span class="q">5</span><span><b>Calço.</b> Empilhados e presos nas pontas. É o ponto de apoio (fulcro) e define a abertura do braço.</span></li>
+          <li><span class="q">2</span><span><b>Braço.</b> Um em cima do outro, presos numa ponta só. O de baixo fica na mesa, o de cima arremessa.</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>5 elásticos + 1 tampinha</h3>
+        <ul class="plist">
+          <li><span class="q">1 e 2</span><span>Uma ponta do calço cada.</span></li>
+          <li><span class="q">3 e 5</span><span><b>A mola.</b> Os dois juntos prendem a ponta dos 2 palitos do braço. Dois elásticos dão quase o dobro de força.</span></li>
+          <li><span class="q">4</span><span>Trava em X entre calço e braço, para nada escorregar.</span></li>
+          <li><span class="q">tampa</span><span>Colada na ponta solta, com a boca para cima. Segura a bolinha até o lançamento.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hTips">
+    <h2 id="hTips">Para ir mais longe</h2>
+    <div class="tips">
+      <div class="tip key"><h3>A bolinha voa para trás</h3><p>Ela sai por cima da ponta presa, não pela frente. Aponte a ponta presa para o alvo.</p></div>
+      <div class="tip"><h3>Calço perto da mola</h3><p>Com o calço a 3 cm da ponta presa, o braço abre mais: mais curso e saída mais baixa, perto de 45°. Teste 3, 4 e 5 cm, 3 lançamentos cada, e fique com o melhor.</p></div>
+      <div class="tip"><h3>Mola bem apertada</h3><p>Enrole os elásticos 3 e 5 juntos, com o máximo de voltas que aguentarem sem arrebentar. Eles são o motor.</p></div>
+      <div class="tip"><h3>Bolinha pequena e dura</h3><p>Enrole a lã bem apertada, com 2 a 3 cm. Lã fofa freia no ar e perde distância.</p></div>
+      <div class="tip"><h3>Solte de uma vez</h3><p>Empurre a ponta até encostar no palito de baixo e tire o dedo de lado, rápido. Acompanhar o braço com o dedo rouba força.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hTrouble">
+    <h2 id="hTrouble">Se der errado</h2>
+    <div class="trouble">
+      <table>
+        <thead><tr><th>O que acontece</th><th>Conserto</th></tr></thead>
+        <tbody>
+          <tr><td>O calço escorrega para a ponta</td><td>Refaça a trava em X (elástico 4) com mais voltas, bem no cruzamento.</td></tr>
+          <tr><td>A bolinha cai antes de lançar</td><td>Use uma tampinha mais funda, ou uma bolinha que encaixe melhor nela.</td></tr>
+          <tr><td>Sobe reto e cai perto</td><td>Aproxime o calço da ponta presa. Se as regras deixarem, apoie a ponta solta num livro: a saída fica mais baixa.</td></tr>
+          <tr><td>Lança fraco</td><td>Dê mais voltas na mola. Troque por uma tampinha mais leve: peso na ponta rouba velocidade.</td></tr>
+          <tr><td>A tampinha descolou</td><td>Use cola quente e espere esfriar uns 5 minutos antes de lançar.</td></tr>
+          <tr><td>Elástico arrebentou</td><td>Elástico velho resseca. Pegue um novo e dê uma volta a menos.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const STEPS = [
+  { t: "Monte o calço", tag: "palitos 1–5 · elásticos 1 e 2",
+    b: ["Empilhe 5 palitos bem alinhados.", "Prenda cada ponta com 1 elástico, dando voltas até a pilha ficar firme."] },
+  { t: "Monte o braço", tag: "palitos 6 e 7 · elásticos 3 e 5",
+    b: ["Coloque os 2 palitos restantes um sobre o outro.", "Prenda só uma ponta com 2 elásticos, um depois do outro, com voltas bem apertadas. Essa é a mola."] },
+  { t: "Encaixe o calço", tag: "sem peça nova",
+    b: ["Abra os 2 palitos do braço pela ponta solta.", "Enfie o calço entre eles, atravessado, a uns 3,5 cm da ponta presa. Empurre até ficar firme."] },
+  { t: "Trave em X", tag: "elástico 4",
+    b: ["Passe 1 elástico em diagonal em volta do cruzamento do calço com o braço.", "Depois cruze na outra diagonal, formando um X por cima e por baixo."] },
+  { t: "Cole a tampinha", tag: "tampinha",
+    b: ["Cole a tampinha no palito de cima, com a boca para cima, rente à ponta solta.", "Use cola quente e espere uns 5 minutos para firmar."] },
+  { t: "Lance", tag: "pronto",
+    b: ["Segure o palito de baixo na mesa com uma mão.", "Coloque a bolinha na tampinha. Empurre a ponta de cima até encostar embaixo e solte de uma vez. A bolinha voa por cima da ponta presa."] },
+];
+const STICKS_AT = [5, 7, 7, 7, 7, 7], BANDS_AT = [2, 4, 4, 5, 5, 5];
+let step = 0;
+
+const list = document.getElementById("stepList");
+STEPS.forEach((s, i) => {
+  const li = document.createElement("li");
+  li.innerHTML = `<button class="step-btn" type="button" id="step${i}"><span class="n">${i + 1}</span><span class="t">${s.t}</span><span class="body">${s.b.map(p => `<p>${p}</p>`).join("")}<span class="tag">${s.tag}</span></span></button>`;
+  li.firstChild.addEventListener("click", () => go(i));
+  list.appendChild(li);
+});
+const $ = id => document.getElementById(id);
+let go = i => { step = i; renderSteps(); };
+$("prevBtn").onclick = () => go(Math.max(0, step - 1));
+$("nextBtn").onclick = () => go(Math.min(STEPS.length - 1, step + 1));
+
+function renderSteps() {
+  STEPS.forEach((_, i) => {
+    const b = $("step" + i);
+    b.classList.toggle("active", i === step);
+    b.classList.toggle("done", i < step);
+    b.setAttribute("aria-current", i === step ? "step" : "false");
+  });
+  $("cSticks").textContent = `palitos ${STICKS_AT[step]}/7`;
+  $("cBands").textContent = `elásticos ${BANDS_AT[step]}/5`;
+  $("prevBtn").disabled = step === 0;
+  $("nextBtn").disabled = step === STEPS.length - 1;
+}
+
+// ---------- geometria (cm) ----------
+const L = 11.4, T = 0.2, W = 1.0, STACK_TOP = T + 5 * T, BALL_R = 1.1, G = 981;
+let d = 3.5;
+const theta0 = () => Math.asin((STACK_TOP - T) / d);
+const thetaP = () => Math.asin((T + 0.03 - STACK_TOP) / (L - d));
+const CAP_R = 1.5, CAP_H = 1.0, CAP_FLOOR = 0.12;
+const capX = () => L - d - CAP_R;
+const ballLocal = () => ({ x: capX(), y: T + CAP_FLOOR + BALL_R });
+function launchModel() {
+  const t0 = theta0(), tp = thetaP();
+  const strokeDeg = (t0 - tp) * 180 / Math.PI;
+  const v = 420 * Math.sqrt(strokeDeg / 24);
+  const elev = Math.PI / 2 - t0;
+  const b = ballLocal();
+  const x0 = d + b.x * Math.cos(t0) - b.y * Math.sin(t0);
+  const y0 = STACK_TOP + b.x * Math.sin(t0) + b.y * Math.cos(t0);
+  const vx = -v * Math.cos(elev), vy = v * Math.sin(elev);
+  const tf = (vy + Math.sqrt(vy * vy + 2 * G * (y0 - BALL_R))) / G;
+  return { t0, tp, v, elev, x0, y0, vx, vy, range: -(x0 + vx * tf) };
+}
+const fmt = (n, dg = 0) => n.toLocaleString("pt-BR", { maximumFractionDigits: dg, minimumFractionDigits: dg });
+function updateReadout() {
+  const m = launchModel();
+  $("fulcrumOut").textContent = fmt(d, 1) + " cm";
+  $("rOpen").textContent = fmt(m.t0 * 180 / Math.PI, 1) + "°";
+  $("rAngle").textContent = fmt(m.elev * 180 / Math.PI) + "°";
+  $("rRange").textContent = "≈ " + fmt(m.range) + " cm";
+}
+
+renderSteps(); updateReadout();
+
+const stage = $("stage");
+if (!window.THREE) {
+  const f = document.createElement("div"); f.className = "fallback";
+  f.textContent = "O modelo 3D não carregou. Os passos à direita continuam valendo.";
+  stage.appendChild(f);
+  $("fulcrum").oninput = e => { d = +e.target.value; updateReadout(); };
+  return;
+}
+
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+stage.prepend(renderer.domElement);
+renderer.domElement.setAttribute("role", "img");
+renderer.domElement.setAttribute("aria-label", "Modelo 3D da catapulta de palitos de picolé");
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 3000);
+camera.position.set(17, 12, 20);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(4.5, 1.2, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 8; controls.maxDistance = 900;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(10, 30, 14); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 500), new THREE.ShadowMaterial({ opacity: 0.18 }));
+ground.rotation.x = -Math.PI / 2; ground.position.x = -150; ground.receiveShadow = true;
+scene.add(ground);
+let grid, labels = [];
+function buildFloor() {
+  if (grid) scene.remove(grid);
+  labels.forEach(l => scene.remove(l)); labels = [];
+  grid = new THREE.GridHelper(400, 40, new THREE.Color(cssv("--muted")), new THREE.Color(cssv("--line")));
+  grid.position.set(-150, -0.01, 0);
+  grid.material.transparent = true; grid.material.opacity = 0.7;
+  scene.add(grid);
+  [50, 100, 150, 200, 250, 300].forEach(cm => {
+    const c = document.createElement("canvas"); c.width = 256; c.height = 64;
+    const g = c.getContext("2d");
+    g.fillStyle = cssv("--muted"); g.font = "500 34px 'JetBrains Mono', monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(cm % 100 ? `${cm} cm` : `${cm / 100} m`, 128, 32);
+    const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+    s.scale.set(16, 4, 1); s.position.set(-cm, 2, -16);
+    scene.add(s); labels.push(s);
+  });
+}
+buildFloor();
+const themeChanged = () => { buildFloor(); wool.color.set(cssv("--wool")); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => themeChanged());
+new MutationObserver(() => themeChanged()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// madeira com veios
+function woodTexture(seed) {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 64;
+  const g = c.getContext("2d");
+  g.fillStyle = "#d8b17c"; g.fillRect(0, 0, 512, 64);
+  let s = seed; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 26; i++) {
+    g.strokeStyle = `rgba(${120 + rnd() * 30},${80 + rnd() * 20},${40},${0.08 + rnd() * 0.12})`;
+    g.lineWidth = 1 + rnd() * 2;
+    const y = rnd() * 64; g.beginPath(); g.moveTo(0, y);
+    for (let x = 0; x <= 512; x += 32) g.lineTo(x, y + Math.sin(x / 60 + rnd()) * 2);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / L, 1 / W); t.offset.set(0.5, 0.5);
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+const stickGeo = (() => {
+  const r = W / 2, hx = L / 2 - r, s = new THREE.Shape();
+  s.moveTo(-hx, -r); s.lineTo(hx, -r); s.absarc(hx, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(-hx, r); s.absarc(-hx, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+  const g = new THREE.ExtrudeGeometry(s, { depth: T - 0.04, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2, curveSegments: 18 });
+  g.rotateX(-Math.PI / 2); g.translate(0, 0.02, 0);
+  return g;
+})();
+const woodMats = [1, 2, 3, 4].map(sd => new THREE.MeshStandardMaterial({ map: woodTexture(sd * 7919), roughness: 0.85, color: 0xffffff }));
+const stackMat = woodMats[0].clone(), armMat = woodMats[1].clone();
+function stick(mat) { const m = new THREE.Mesh(stickGeo, mat); m.castShadow = m.receiveShadow = true; return m; }
+
+// elásticos
+const bandMats = [0, 1, 2, 3, 4].map(() => new THREE.MeshStandardMaterial({ color: 0xe8b400, roughness: 0.5 }));
+function loopPts(u0, u1, v0, v1, c) {
+  return [[u0 + c, v0], [u1 - c, v0], [u1, v0 + c], [u1, v1 - c], [u1 - c, v1], [u0 + c, v1], [u0, v1 - c], [u0, v0 + c]];
+}
+function loopGeo(pts2, map, radius = 0.05) {
+  const curve = new THREE.CatmullRomCurve3(pts2.map(([u, v]) => map(u, v)), true, "centripetal");
+  return new THREE.TubeGeometry(curve, 72, radius, 6, true);
+}
+function bandMesh(geo, mat) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; return m; }
+
+// --- calço (pilha de 5) ---
+const stack = new THREE.Group(); scene.add(stack);
+for (let i = 0; i < 5; i++) { const m = stick(stackMat); m.rotation.y = Math.PI / 2; m.position.y = T + i * T; stack.add(m); }
+[-4.3, 4.3].forEach((z, k) => {
+  for (let t = 0; t < 3; t++) {
+    const e = 0.05;
+    stack.add(bandMesh(loopGeo(loopPts(-0.5 - e, 0.5 + e, T - e, STACK_TOP + e, 0.08), (u, v) => new THREE.Vector3(u, v, z + (t - 1) * 0.11)), bandMats[k]));
+  }
+});
+
+// --- braço ---
+const bottomArm = stick(armMat); bottomArm.position.x = L / 2; scene.add(bottomArm);
+const pivot = new THREE.Group(); scene.add(pivot);
+const topArm = stick(armMat); pivot.add(topArm);
+// tampinha colada na ponta, boca para cima
+const capMat = new THREE.MeshStandardMaterial({ color: 0x2f6fd6, roughness: 0.45, side: THREE.DoubleSide });
+const cap = new THREE.Group(); pivot.add(cap);
+(() => {
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(CAP_R, CAP_R, CAP_H, 40, 1, true), capMat);
+  wall.position.y = T + CAP_H / 2;
+  const floor = new THREE.Mesh(new THREE.CylinderGeometry(CAP_R, CAP_R, CAP_FLOOR, 40), capMat);
+  floor.position.y = T + CAP_FLOOR / 2;
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(CAP_R, 0.05, 6, 40), capMat);
+  lip.rotation.x = Math.PI / 2; lip.position.y = T + CAP_H;
+  [wall, floor, lip].forEach(m => { m.castShadow = m.receiveShadow = true; cap.add(m); });
+})();
+
+// mola (refeita a cada quadro porque estica)
+const hinge = new THREE.Group(); scene.add(hinge);
+const tmpA = new THREE.Vector3();
+function rebuildHinge() {
+  hinge.children.forEach(c => c.geometry.dispose()); hinge.clear();
+  for (let t = 0; t < 6; t++) {
+    const hx = 0.45 + t * 0.11;
+    pivot.updateMatrixWorld();
+    const top = pivot.localToWorld(tmpA.set(hx - d, T, 0)).y;
+    const e = 0.05;
+    hinge.add(bandMesh(loopGeo(loopPts(-0.5 - e, 0.5 + e, -e, top + e, 0.08), (u, v) => new THREE.Vector3(hx, v, u)), bandMats[t < 3 ? 2 : 4]));
+  }
+}
+
+// trava em X
+const xwrap = new THREE.Group(); scene.add(xwrap);
+[Math.PI / 4, -Math.PI / 4].forEach(a => {
+  for (let t = 0; t < 2; t++) {
+    const e = 0.05 + t * 0.07;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    xwrap.add(bandMesh(loopGeo(loopPts(-0.78 - e, 0.78 + e, -e, STACK_TOP + T + e + 0.02, 0.12), (u, v) => new THREE.Vector3(u * ca, v, u * sa)), bandMats[3]));
+  }
+});
+
+// bolinha de lã
+const wool = new THREE.MeshStandardMaterial({ color: cssv("--wool") || "#d6334a", roughness: 1 });
+const woolLight = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.18 });
+const ball = new THREE.Group();
+(() => {
+  const core = new THREE.Mesh(new THREE.SphereGeometry(BALL_R * 0.9, 32, 24), wool); core.castShadow = true; ball.add(core);
+  let s = 11; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const tg = new THREE.TorusGeometry(BALL_R * 0.92, 0.07, 6, 56);
+  for (let i = 0; i < 18; i++) {
+    const m = new THREE.Mesh(tg, wool); m.rotation.set(rnd() * Math.PI, rnd() * Math.PI, rnd() * Math.PI); m.castShadow = true; ball.add(m);
+    if (i % 3 === 0) { const h = new THREE.Mesh(tg, woolLight); h.rotation.copy(m.rotation); h.scale.setScalar(1.005); ball.add(h); }
+  }
+})();
+pivot.add(ball);
+
+// trajetória
+const MAXP = 600;
+const trail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: 0xd6334a, dashSize: 2, gapSize: 1.5 }));
+trail.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(MAXP * 3), 3));
+trail.geometry.setDrawRange(0, 0); trail.frustumCulled = false; scene.add(trail);
+const landMark = new THREE.Mesh(new THREE.RingGeometry(2.2, 3, 40), new THREE.MeshBasicMaterial({ color: 0xe8b400, side: THREE.DoubleSide }));
+landMark.rotation.x = -Math.PI / 2; landMark.visible = false; scene.add(landMark);
+
+// ---------- poses ----------
+let launch = null, flight = null, ballLanded = false, camAnim = null;
+const pose = { sx: d, sy: 0, sz: 0, ay: STACK_TOP, th: 0 };
+function targetPose() {
+  if (step === 0) return { sx: d, sy: -T, sz: 0, ay: T, th: 0 };
+  if (step === 1) return { sx: d, sy: -T, sz: 7.5, ay: T, th: 0 };
+  return { sx: d, sy: 0, sz: 0, ay: STACK_TOP, th: theta0() };
+}
+function layoutArm() {
+  topArm.position.x = L / 2 - d;
+  cap.position.x = capX();
+  pivot.position.x = d;
+  xwrap.position.x = d;
+  if (!flight) { const b = ballLocal(); ball.position.set(b.x, b.y, 0); }
+}
+Object.assign(pose, targetPose());
+layoutArm();
+
+const NEW = [[stackMat, bandMats[0], bandMats[1]], [armMat, bandMats[2], bandMats[4]], [stackMat], [bandMats[3]], [capMat, wool], []];
+function applyVisibility() {
+  const armOn = step >= 1;
+  bottomArm.visible = pivot.visible = hinge.visible = armOn;
+  topArm.visible = armOn;
+  xwrap.visible = step >= 3;
+  cap.visible = step >= 4;
+  ball.visible = step >= 4 || !!flight || ballLanded;
+}
+
+function resetBall() {
+  flight = null; ballLanded = false;
+  if (ball.parent !== pivot) pivot.attach(ball);
+  ball.rotation.set(0, 0, 0);
+  layoutArm();
+  trail.geometry.setDrawRange(0, 0); landMark.visible = false;
+}
+function setStep(i) {
+  step = i; launch = null;
+  resetBall(); renderSteps(); applyVisibility();
+  if (step < 5) goCamera("close");
+}
+go = setStep;
+
+$("fulcrum").oninput = e => { d = +e.target.value; resetBall(); updateReadout(); };
+$("launchBtn").onclick = () => {
+  if (step < 5) setStep(5);
+  resetBall(); applyVisibility();
+  launch = { phase: "press", t: 0 };
+  goCamera("close");
+};
+$("closeBtn").onclick = () => goCamera("close");
+
+function goCamera(kind, R = 100) {
+  let tgt, pos;
+  if (kind === "close") { tgt = new THREE.Vector3(4.5, 1.2, 0); pos = new THREE.Vector3(17, 12, 20); }
+  else {
+    tgt = new THREE.Vector3(-R * 0.45 + 4, R * 0.35, 0);
+    pos = tgt.clone().add(new THREE.Vector3(R * 0.25 + 12, R * 0.3 + 14, R * 1.6 + 50));
+  }
+  if (reduce) { controls.target.copy(tgt); camera.position.copy(pos); camAnim = null; return; }
+  camAnim = { t: 0, dur: kind === "close" ? 0.7 : 0.9, p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt };
+}
+controls.addEventListener("start", () => { camAnim = null; $("hint").hidden = true; });
+
+// highlight do passo atual
+function pulse(time) {
+  const all = new Set([stackMat, armMat, wool, capMat, ...bandMats]);
+  const on = new Set(NEW[step]);
+  const k = reduce ? 0.25 : 0.18 + 0.18 * Math.sin(time * 4.5);
+  all.forEach(m => { m.emissive = m.emissive || new THREE.Color(); m.emissive.set(on.has(m) ? 0xffcc33 : 0x000000); m.emissiveIntensity = on.has(m) ? k : 0; });
+}
+
+const ease = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+const damp = (a, b, dt, r = 8) => a + (b - a) * (1 - Math.exp(-r * dt));
+const flightV = new THREE.Vector3();
+let trailN = 0;
+
+function tick(dt, time) {
+  const tp = targetPose();
+  ["sx", "sy", "sz", "ay"].forEach(k => pose[k] = reduce ? tp[k] : damp(pose[k], tp[k], dt));
+  let th = reduce ? tp.th : damp(pose.th, tp.th, dt);
+
+  if (launch) {
+    launch.t += dt;
+    const t0 = theta0(), tP = thetaP();
+    if (launch.phase === "press") {
+      th = t0 + (tP - t0) * ease(Math.min(launch.t / 0.7, 1));
+      if (launch.t > 1.0) { launch.phase = "release"; launch.t = 0; }
+    } else if (launch.phase === "release") {
+      const k = Math.min(launch.t / 0.07, 1);
+      th = tP + (t0 - tP) * k * k;
+      if (k >= 1) {
+        th = t0; pivot.rotation.z = t0; pivot.updateMatrixWorld();
+        scene.attach(ball);
+        const m = launchModel();
+        flightV.set(m.vx, m.vy, 0);
+        flight = { spin: 0 }; trailN = 0;
+        launch.phase = "settle"; launch.t = 0;
+        goCamera("wide", Math.max(m.range, 40));
+      }
+    } else {
+      th = t0 + 0.05 * Math.exp(-launch.t * 7) * Math.sin(launch.t * 45);
+      if (launch.t > 0.8) launch = null;
+    }
+  }
+  pose.th = th;
+  stack.position.set(pose.sx, pose.sy, pose.sz);
+  pivot.position.set(d, pose.ay, 0);
+  pivot.rotation.z = th;
+  rebuildHinge();
+
+  if (flight) {
+    const sdt = dt * 0.55, n = 4;
+    for (let i = 0; i < n; i++) {
+      flightV.y -= G * sdt / n;
+      ball.position.addScaledVector(flightV, sdt / n);
+    }
+    ball.rotation.z += sdt * 14;
+    const arr = trail.geometry.attributes.position.array;
+    if (trailN < MAXP) { arr.set([ball.position.x, ball.position.y, 0], trailN * 3); trailN++; trail.geometry.setDrawRange(0, trailN); trail.geometry.attributes.position.needsUpdate = true; trail.computeLineDistances(); }
+    if (ball.position.y <= BALL_R * 0.9 && flightV.y < 0) {
+      ball.position.y = BALL_R * 0.9;
+      landMark.position.set(ball.position.x, 0.02, 0); landMark.visible = true;
+      $("rRange").textContent = "≈ " + fmt(-ball.position.x) + " cm";
+      flight = null; ballLanded = true;
+    }
+  }
+
+  if (camAnim) {
+    camAnim.t += dt;
+    const k = ease(Math.min(camAnim.t / camAnim.dur, 1));
+    camera.position.lerpVectors(camAnim.p0, camAnim.p1, k);
+    controls.target.lerpVectors(camAnim.t0, camAnim.t1, k);
+    if (k >= 1) camAnim = null;
+  }
+  pulse(time);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+applyVisibility();
+let last = performance.now();
+renderer.setAnimationLoop(now => { const dt = Math.min((now - last) / 1000, 0.05); last = now; tick(dt, now / 1000); });
+})();
+</script>
+
+</body></html>

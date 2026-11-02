@@ -1,0 +1,681 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Protetor de Ovo Triangular</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: bancada de trabalho — visor 3D à esquerda, passo atual à direita; abaixo, peças, dicas e consertos. */
+:root {
+  --bg: #edf0f4;
+  --surface: #ffffff;
+  --ink: #1b2433;
+  --muted: #586276;
+  --line: #d3d9e3;
+  --band: #e8b400;
+  --band-ink: #6b5200;
+  --band-soft: #fff4cc;
+  --good: #1f7a4d;
+  --bad: #b3263c;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151d; --surface: #19202b; --ink: #e6ebf2; --muted: #98a3b6; --line: #2a3342;
+    --band: #f2c531; --band-ink: #f2c531; --band-soft: #2e2810; --good: #4cc48a; --bad: #ef6a7e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151d; --surface: #19202b; --ink: #e6ebf2; --muted: #98a3b6; --line: #2a3342;
+  --band: #f2c531; --band-ink: #f2c531; --band-soft: #2e2810; --good: #4cc48a; --bad: #ef6a7e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.55;
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: grid; gap: 36px;
+}
+header { display: grid; gap: 6px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(34px, 6vw, 56px); line-height: 1; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+h1 .band { color: var(--band-ink); }
+.lead { margin: 4px 0 0; max-width: 62ch; color: var(--muted); }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 24px; margin: 0 0 14px; text-wrap: balance; }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+
+.viewer { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.stage { position: relative; height: 500px; touch-action: none; }
+@media (max-width: 880px) { .stage { height: auto; aspect-ratio: 4 / 3.6; max-width: 100%; } }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.stage .hint { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--muted); pointer-events: none; }
+.stage .fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+.counters { position: absolute; top: 10px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.chip { font-family: var(--f-mono); font-size: 12px; padding: 3px 8px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chip.band { background: var(--band-soft); border-color: var(--band); color: var(--band-ink); }
+
+.controls { border-top: 1px solid var(--line); padding: 14px 16px 16px; display: grid; gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.slider { flex: 1 1 260px; display: grid; gap: 4px; min-width: 0; }
+.slider label { font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+.slider output { font-family: var(--f-mono); font-weight: 500; color: var(--band-ink); }
+input[type=range] { width: 100%; accent-color: var(--band); }
+.btn {
+  font: 700 15px/1 var(--f-body); padding: 12px 18px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.btn.primary { background: var(--band); border-color: var(--band); color: #2a2100; }
+.btn:hover { filter: brightness(1.05); }
+.btn:disabled { opacity: .45; cursor: default; filter: none; }
+.btn:focus-visible, .step-btn:focus-visible, input:focus-visible { outline: 3px solid var(--band); outline-offset: 2px; }
+.readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 480px) { .readout { grid-template-columns: minmax(0, 1fr); } }
+.readout div { background: var(--bg); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.readout span { display: block; font-size: 12px; color: var(--muted); }
+.readout b { font-family: var(--f-mono); font-weight: 500; font-size: 18px; font-variant-numeric: tabular-nums; }
+.readout .bad b { color: var(--bad); }
+.readout .good b { color: var(--good); }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+
+.steps { display: grid; gap: 12px; }
+.steps ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.step-btn {
+  width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px;
+  background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 10px; color: var(--ink); font: inherit;
+}
+.step-btn .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--f-mono); font-size: 14px; border: 1.5px solid var(--line); color: var(--muted);
+}
+.step-btn .t { font-weight: 700; padding-top: 3px; }
+.step-btn .body { grid-column: 2; display: none; color: var(--ink); }
+.step-btn .body p { margin: 4px 0 0; }
+.step-btn .tag { display: inline-block; margin-top: 8px; font-family: var(--f-mono); font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--band-soft); color: var(--band-ink); border: 1px solid var(--band); }
+.step-btn.done .n { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.step-btn.active { background: var(--surface); border-color: var(--line); }
+.step-btn.active .n { background: var(--band); border-color: var(--band); color: #2a2100; }
+.step-btn.active .body { display: block; }
+.step-nav { display: flex; gap: 8px; }
+.step-nav .btn { flex: 1; }
+
+.parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 880px) { .parts { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 18px 8px; min-width: 0; }
+.card h3 { margin: 0 0 10px; font-size: 17px; }
+.plist { list-style: none; margin: 0; padding: 0; }
+.plist li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.plist li:first-child { border-top: 0; }
+.plist .q { font-family: var(--f-mono); font-size: 14px; color: var(--band-ink); font-variant-numeric: tabular-nums; text-align: right; }
+.plist .spare .q, .plist .spare span { color: var(--muted); }
+
+.tips { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.tip { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.tip h3 { margin: 0 0 6px; font-size: 16px; }
+.tip p { margin: 0; color: var(--muted); }
+.tip.key { border-color: var(--band); background: var(--band-soft); }
+.tip.key p { color: var(--ink); }
+
+.trouble { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 520px; }
+th, td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-size: 13px; color: var(--muted); font-weight: 700; }
+td:first-child { font-weight: 700; width: 38%; }
+</style>
+<style>
+.readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 480px) { .readout { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Projeto · 24 de 50 palitos · 47 de 50 elásticos · 12 guardanapos · 1 ovo cru</div>
+    <h1>Protetor de Ovo <span class="band">Triangular</span></h1>
+    <p class="lead">Uma gaiola triangular alta, com o ovo pendurado no meio por 6 pares de elásticos. A altura dá ao ovo uns 6 cm para frear antes de chegar na cama, 3 vezes mais que no cubo. Sete passos, uns 45 minutos. Clique em cada passo para ver a peça no modelo 3D.</p>
+  </header>
+
+  <section class="bench" aria-label="Montagem">
+    <div class="viewer">
+      <div class="stage" id="stage">
+        <div class="counters">
+          <span class="chip" id="cSticks">palitos 0/50</span>
+          <span class="chip band" id="cBands">elásticos 0/50</span>
+          <span class="chip" id="cNap">guardanapos 0/12</span>
+        </div>
+        <div class="hint" id="hint">arraste para girar</div>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <div class="slider">
+            <label for="height">Altura da queda <output id="heightOut">2 m</output></label>
+            <input type="range" id="height" min="0.5" max="6" step="0.5" value="2">
+          </div>
+          <button class="btn primary" id="dropBtn" type="button">Soltar</button>
+          <button class="btn" id="closeBtn" type="button">Ver de perto</button>
+        </div>
+        <div class="readout">
+          <div><span>Velocidade ao bater no chão</span><b id="rSpeed">–</b></div>
+          <div class="bad"><span>Só guardanapo (freia em ~1,5 cm)</span><b id="rNap">–</b></div>
+          <div><span>Cubo (freia em ~6 cm)</span><b id="rCube">–</b></div>
+          <div class="good"><span>Prisma alto (freia em ~8 cm)</span><b id="rPrism">–</b></div>
+        </div>
+        <p class="note">Força média no ovo, em vezes o próprio peso (g). Conta simples: altura ÷ distância de freada, sem ar e com freada constante. Serve para comparar, não para prometer. O que manda é a distância que o ovo tem para frear.</p>
+      </div>
+    </div>
+
+    <div class="steps">
+      <ol id="stepList"></ol>
+      <div class="step-nav">
+        <button class="btn" id="prevBtn" type="button">← Anterior</button>
+        <button class="btn primary" id="nextBtn" type="button">Próximo →</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hParts">
+    <h2 id="hParts">Para onde vai cada peça</h2>
+    <div class="parts">
+      <div class="card">
+        <h3>50 palitos</h3>
+        <ul class="plist">
+          <li><span class="q">12</span><span><b>Triângulos.</b> 6 arestas de 2 palitos emendados, uns 19 cm cada: 3 no fundo, 3 no topo.</span></li>
+          <li><span class="q">9</span><span><b>Colunas.</b> 3 colunas de 3 palitos emendados, uns 26 cm cada.</span></li>
+          <li><span class="q">3</span><span><b>Travas.</b> Uma atravessada no canto de cima de cada lateral.</span></li>
+          <li class="spare"><span class="q">26</span><span>Reserva, para trocar palito rachado ou dobrar as colunas.</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>50 elásticos</h3>
+        <ul class="plist">
+          <li><span class="q">12</span><span>Emendas: 1 em cada aresta curta, 2 em cada coluna.</span></li>
+          <li><span class="q">12</span><span>Cantos do prisma, 2 em cada.</span></li>
+          <li><span class="q">12</span><span><b>Suspensão.</b> 6 pares emendados, um par de cada canto até o casulo. Em par fica mais longo e mais macio.</span></li>
+          <li><span class="q">6</span><span>Pontas das 3 travas.</span></li>
+          <li><span class="q">5</span><span>2 no arnês do casulo, 3 na rede da cama.</span></li>
+          <li class="spare"><span class="q">3</span><span>Reserva.</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>12 guardanapos</h3>
+        <ul class="plist">
+          <li><span class="q">6</span><span><b>Casulo.</b> 3 em tiras enroladas no ovo, 3 amassados por fora. Fica com uns 7 cm, para sobrar espaço dos lados.</span></li>
+          <li><span class="q">6</span><span><b>Cama.</b> Uma bola fofa no fundo, última defesa se o casulo descer demais.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hTips">
+    <h2 id="hTips">Para o ovo sobreviver</h2>
+    <div class="tips">
+      <div class="tip key"><h3>A altura é o que salva o ovo</h3><p>Com o casulo no meio de uma gaiola de 26 cm, ele tem uns 6 cm de descida antes de tocar a cama. No cubo eram 2 cm. Não encha o fundo além da bola de guardanapo.</p></div>
+      <div class="tip"><h3>Casulo pequeno</h3><p>Dos lados sobra só uns 2 cm até as colunas. Se o casulo passar de 7,5 cm, tire 1 guardanapo dele e jogue na cama.</p></div>
+      <div class="tip"><h3>Solte reto, com o fundo para baixo</h3><p>Caindo reto, o casulo só desce e sobe. Caindo torto, ele balança para o lado e pode bater numa coluna.</p></div>
+      <div class="tip"><h3>Firme, não no limite</h3><p>Parado, o casulo não encosta em nada. Empurre de leve para baixo: ele deve descer uns 3 cm e voltar ao centro.</p></div>
+      <div class="tip"><h3>Treine com ovo cozido</h3><p>Faça 2 ou 3 quedas de 1 m com um ovo cozido ou uma bola de papel do mesmo tamanho. Ajuste os elásticos e só então use o ovo cru.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hTrouble">
+    <h2 id="hTrouble">Se der errado</h2>
+    <div class="trouble">
+      <table>
+        <thead><tr><th>O que acontece</th><th>Conserto</th></tr></thead>
+        <tbody>
+          <tr><td>O topo gira e o prisma torce</td><td>Reaperte os cantos com mais voltas. Se continuar, faça mais uma trava, no canto de baixo de uma lateral, com 1 palito e 2 elásticos de reserva.</td></tr>
+          <tr><td>A coluna dobra na emenda</td><td>Confira os 4 cm de sobreposição. Se ainda dobrar, dobre a coluna: prenda mais 3 palitos de reserva ao lado, nos mesmos elásticos.</td></tr>
+          <tr><td>Parado, o casulo encosta numa coluna</td><td>O lado oposto está frouxo: dê uma volta a mais desse par no canto. Se não resolver, o casulo está grande: tire 1 guardanapo.</td></tr>
+          <tr><td>Ao empurrar, o casulo bate na cama</td><td>Os 3 pares de cima estão frouxos. Dê uma volta extra de cada um no canto de cima.</td></tr>
+          <tr><td>Parado, o casulo fica baixo, perto da cama</td><td>Os pares de cima esticaram demais com o peso. Troque cada par de cima por 1 elástico só, mais curto.</td></tr>
+          <tr><td>O ovo trincou na lateral</td><td>O casulo estava fino na barriga do ovo, que é a parte mais frágil. Distribua os guardanapos por igual.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const STEPS = [
+  { t: "Faça o casulo do ovo", tag: "6 guardanapos · elásticos 1 e 2",
+    b: ["Dobre 3 guardanapos em tiras e enrole o ovo como um curativo, cobrindo as duas pontas.",
+        "Amasse os outros 3 de leve e cubra o ovo até virar uma bola de uns 7 cm. Fofo, não socado.",
+        "Passe 2 elásticos cruzados em volta, como fita de presente. Eles formam o arnês onde a suspensão vai prender."] },
+  { t: "Emende as 9 arestas", tag: "21 palitos · 12 elásticos",
+    b: ["6 arestas curtas: 2 palitos sobrepostos 4 cm nas pontas, presos com 1 elástico. Ficam com uns 19 cm.",
+        "3 colunas: 3 palitos em fila, cada emenda sobreposta 4 cm e presa com 1 elástico. Ficam com uns 26 cm."] },
+  { t: "Monte o prisma", tag: "12 elásticos",
+    b: ["Feche 2 triângulos com as arestas curtas: um é o fundo, o outro o topo. Prenda cada canto com 1 elástico em X.",
+        "Levante as 3 colunas nos cantos do fundo, encaixe o topo e prenda cada canto com mais 1 elástico."] },
+  { t: "Trave as laterais", tag: "3 palitos · 6 elásticos",
+    b: ["Em cada lateral, coloque 1 palito atravessado no canto de cima, com as pontas a 8 cm do canto.",
+        "Prenda cada ponta com 1 elástico. Use sempre o canto da esquerda de cada lateral, para as travas ficarem em volta."] },
+  { t: "Faça a cama de guardanapo", tag: "6 guardanapos · 3 elásticos",
+    b: ["Prenda 1 elástico no meio de cada aresta do fundo e passe os 3 um por dentro do outro no centro, formando um Y.",
+        "Amasse 6 guardanapos juntos numa bola fofa e encaixe no centro do Y."] },
+  { t: "Pendure o casulo", tag: "12 elásticos",
+    b: ["Emende os elásticos de 2 em 2, passando um por dentro do outro: são 6 pares.",
+        "Prenda 1 par em cada canto e leve até o casulo. Passe por baixo do arnês e por dentro da própria alça, puxando para apertar.",
+        "Ajuste até o casulo ficar no centro, sem encostar nas colunas, uns 6 cm acima da cama."] },
+  { t: "Teste e solte", tag: "pronto",
+    b: ["Empurre o casulo de leve para baixo: ele desce uns 3 cm e volta ao centro, sem bater em nada.",
+        "Teste antes com ovo cozido, de 1 m. Depois solte de verdade, reto e com o fundo para baixo."] },
+];
+const STICKS_AT = [0, 21, 21, 24, 24, 24, 24], BANDS_AT = [2, 14, 26, 32, 35, 47, 47], NAP_AT = [6, 6, 6, 6, 12, 12, 12];
+let step = 0;
+
+const list = document.getElementById("stepList");
+STEPS.forEach((s, i) => {
+  const li = document.createElement("li");
+  li.innerHTML = `<button class="step-btn" type="button" id="step${i}"><span class="n">${i + 1}</span><span class="t">${s.t}</span><span class="body">${s.b.map(p => `<p>${p}</p>`).join("")}<span class="tag">${s.tag}</span></span></button>`;
+  li.firstChild.addEventListener("click", () => go(i));
+  list.appendChild(li);
+});
+const $ = id => document.getElementById(id);
+let go = i => { step = i; renderSteps(); };
+$("prevBtn").onclick = () => go(Math.max(0, step - 1));
+$("nextBtn").onclick = () => go(Math.min(STEPS.length - 1, step + 1));
+
+function renderSteps() {
+  STEPS.forEach((_, i) => {
+    const b = $("step" + i);
+    b.classList.toggle("active", i === step);
+    b.classList.toggle("done", i < step);
+    b.setAttribute("aria-current", i === step ? "step" : "false");
+  });
+  $("cSticks").textContent = `palitos ${STICKS_AT[step]}/50`;
+  $("cBands").textContent = `elásticos ${BANDS_AT[step]}/50`;
+  $("cNap").textContent = `guardanapos ${NAP_AT[step]}/12`;
+  $("prevBtn").disabled = step === 0;
+  $("nextBtn").disabled = step === STEPS.length - 1;
+}
+
+// ---------- números da queda ----------
+const S_NAP = 1.5, S_CUBE = 6, S_PRISM = 8;
+let h = 2;
+const fmt = (n, dg = 0) => n.toLocaleString("pt-BR", { maximumFractionDigits: dg, minimumFractionDigits: dg });
+function updateReadout() {
+  const v = Math.sqrt(2 * 9.81 * h);
+  $("heightOut").textContent = fmt(h, h % 1 ? 1 : 0) + " m";
+  $("rSpeed").textContent = fmt(v * 3.6) + " km/h";
+  $("rNap").textContent = "≈ " + fmt(h * 100 / S_NAP) + " g";
+  $("rCube").textContent = "≈ " + fmt(h * 100 / S_CUBE) + " g";
+  $("rPrism").textContent = "≈ " + fmt(h * 100 / S_PRISM) + " g";
+}
+$("height").oninput = e => { h = +e.target.value; updateReadout(); };
+
+renderSteps(); updateReadout();
+
+const stage = $("stage");
+if (!window.THREE) {
+  const f = document.createElement("div"); f.className = "fallback";
+  f.textContent = "O modelo 3D não carregou. Os passos ao lado continuam valendo.";
+  stage.appendChild(f);
+  $("dropBtn").disabled = $("closeBtn").disabled = true;
+  return;
+}
+
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+stage.prepend(renderer.domElement);
+renderer.domElement.setAttribute("role", "img");
+renderer.domElement.setAttribute("aria-label", "Modelo 3D do protetor de ovo triangular: prisma alto de palitos com o ovo pendurado por elásticos");
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 3000);
+const CLOSE_POS = new THREE.Vector3(46, 34, 58), CLOSE_TGT = new THREE.Vector3(5, 11, 0);
+camera.position.copy(CLOSE_POS);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.copy(CLOSE_TGT);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 15; controls.maxDistance = 300;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(18, 60, 24); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 160 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), new THREE.ShadowMaterial({ opacity: 0.18 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+scene.add(ground);
+let grid;
+function buildFloor() {
+  if (grid) scene.remove(grid);
+  grid = new THREE.GridHelper(120, 24, new THREE.Color(cssv("--muted")), new THREE.Color(cssv("--line")));
+  grid.position.y = -0.01;
+  grid.material.transparent = true; grid.material.opacity = 0.7;
+  scene.add(grid);
+}
+buildFloor();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", buildFloor);
+new MutationObserver(buildFloor).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// ---------- medidas (cm) ----------
+const L = 11.4, T = 0.2, W = 1.0, OVL = 4;
+const spliced = n => n * L - (n - 1) * OVL;
+const SIDE_LEN = spliced(2), HGT = spliced(3);
+const RC = SIDE_LEN / Math.sqrt(3);            // centro → canto do triângulo
+const YB = 0.5, YT = YB + HGT, YC = (YB + YT) / 2;
+const R = 3.6;                                  // raio do casulo (~7 cm)
+const BED_Y = YB + 1.7, BED_R = 3.2, BED_SY = 0.5;
+const GAP = (YC - R) - (BED_Y + BED_R * BED_SY); // folga casulo → cama
+
+// madeira com veios
+function woodTexture(seed) {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 64;
+  const g = c.getContext("2d");
+  g.fillStyle = "#d8b17c"; g.fillRect(0, 0, 512, 64);
+  let s = seed; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 26; i++) {
+    g.strokeStyle = `rgba(${120 + rnd() * 30},${80 + rnd() * 20},${40},${0.08 + rnd() * 0.12})`;
+    g.lineWidth = 1 + rnd() * 2;
+    const y = rnd() * 64; g.beginPath(); g.moveTo(0, y);
+    for (let x = 0; x <= 512; x += 32) g.lineTo(x, y + Math.sin(x / 60 + rnd()) * 2);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / L, 1 / W); t.offset.set(0.5, 0.5);
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+const stickGeo = (() => {
+  const r = W / 2, hx = L / 2 - r, s = new THREE.Shape();
+  s.moveTo(-hx, -r); s.lineTo(hx, -r); s.absarc(hx, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(-hx, r); s.absarc(-hx, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+  const g = new THREE.ExtrudeGeometry(s, { depth: T - 0.04, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2, curveSegments: 18 });
+  g.rotateX(-Math.PI / 2); g.translate(0, 0.02 - T / 2, 0);
+  return g;
+})();
+const edgeMat = new THREE.MeshStandardMaterial({ map: woodTexture(7919), roughness: 0.85 });
+const braceMat = new THREE.MeshStandardMaterial({ map: woodTexture(23757), roughness: 0.85 });
+function stick(mat) { const m = new THREE.Mesh(stickGeo, mat); m.castShadow = m.receiveShadow = true; return m; }
+
+const bandMat = () => new THREE.MeshStandardMaterial({ color: 0xe8b400, roughness: 0.5 });
+const spliceMat = bandMat(), cornerMat = bandMat(), braceBandMat = bandMat(), netMat = bandMat(), suspMat = bandMat(), harnessMat = bandMat();
+const ringGeo = new THREE.TorusGeometry(0.62, 0.055, 6, 28);
+const cornerRingGeo = new THREE.TorusGeometry(0.85, 0.06, 6, 28);
+function ring(geo, mat) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; return m; }
+const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
+
+// tudo que cai junto
+const rig = new THREE.Group(); scene.add(rig);
+
+// ---------- cantos e arestas ----------
+const ANG = [0, 1, 2].map(k => Math.PI / 2 + k * 2 * Math.PI / 3);
+const bottom = ANG.map(a => new THREE.Vector3(RC * Math.cos(a), YB, RC * Math.sin(a)));
+const top = ANG.map(a => new THREE.Vector3(RC * Math.cos(a), YT, RC * Math.sin(a)));
+const corners = [...bottom, ...top];
+const edgeDefs = [];
+[bottom, top].forEach(tri => [0, 1, 2].forEach(k => edgeDefs.push({ a: tri[k], b: tri[(k + 1) % 3], n: 2 })));
+[0, 1, 2].forEach(k => edgeDefs.push({ a: bottom[k], b: top[k], n: 3 }));
+
+const edges = edgeDefs.map(({ a, b, n }, i) => {
+  const g = new THREE.Group();
+  const len = spliced(n), s0 = -len / 2;
+  for (let j = 0; j < n; j++) {
+    const s = stick(edgeMat);
+    s.position.set(s0 + j * (L - OVL) + L / 2, j % 2 ? T / 2 : -T / 2, 0);
+    g.add(s);
+    if (j < n - 1) {
+      const c = s0 + (j + 1) * (L - OVL) + OVL / 2;
+      [-0.6, 0, 0.6].forEach(x => { const r = ring(ringGeo, spliceMat); r.rotation.y = Math.PI / 2; r.position.x = c + x; g.add(r); });
+    }
+  }
+  const dir = b.clone().sub(a).normalize();
+  const cube = { p: a.clone().add(b).multiplyScalar(0.5), q: new THREE.Quaternion().setFromUnitVectors(X, dir) };
+  const flat = { p: new THREE.Vector3(-8.8 + i * 2.2, T, 0), q: new THREE.Quaternion().setFromAxisAngle(Y, -Math.PI / 2) };
+  rig.add(g);
+  return { g, cube, flat };
+});
+
+// amarração dos cantos
+const cornerBands = new THREE.Group(); rig.add(cornerBands);
+corners.forEach(c => {
+  const rx = c.x / RC, rz = c.z / RC;
+  const a = ring(cornerRingGeo, cornerMat); a.position.copy(c); a.quaternion.setFromUnitVectors(Z, new THREE.Vector3(-rz, 0, rx).normalize());
+  const b = ring(cornerRingGeo, cornerMat); b.position.copy(c); b.quaternion.setFromUnitVectors(Z, new THREE.Vector3(rx, c.y === YB ? 1 : -1, rz).normalize());
+  cornerBands.add(a, b);
+});
+
+// ---------- travas das laterais (canto de cima de cada face) ----------
+const braces = new THREE.Group(); rig.add(braces);
+[0, 1, 2].forEach(k => {
+  const c = top[k], next = top[(k + 1) % 3];
+  const along = next.clone().sub(c).normalize();
+  const out = c.clone().add(next).setY(0).normalize().multiplyScalar(0.35);
+  const p1 = c.clone().addScaledVector(along, 8);
+  const p2 = c.clone().add(new THREE.Vector3(0, -8, 0));
+  const m = stick(braceMat);
+  m.position.copy(p1).add(p2).multiplyScalar(0.5).add(out);
+  m.quaternion.setFromUnitVectors(X, p2.clone().sub(p1).normalize());
+  braces.add(m);
+  const r1 = ring(ringGeo, braceBandMat); r1.position.copy(p1); r1.quaternion.setFromUnitVectors(Z, along); r1.scale.setScalar(1.15);
+  const r2 = ring(ringGeo, braceBandMat); r2.position.copy(p2); r2.rotation.x = Math.PI / 2; r2.scale.setScalar(1.15);
+  braces.add(r1, r2);
+});
+
+// elástico esticado entre 2 pontos = 2 fios finos
+const strandGeo = new THREE.CylinderGeometry(0.055, 0.055, 1, 6);
+function makeStrap(mat) {
+  const g = new THREE.Group();
+  const a = new THREE.Mesh(strandGeo, mat), b = new THREE.Mesh(strandGeo, mat);
+  a.castShadow = b.castShadow = true; g.add(a, b);
+  return g;
+}
+const tmpD = new THREE.Vector3(), tmpS = new THREE.Vector3();
+function setStrap(g, p1, p2) {
+  tmpD.copy(p2).sub(p1); const len = tmpD.length(); tmpD.normalize();
+  tmpS.crossVectors(tmpD, Math.abs(tmpD.y) > 0.9 ? X : Y).normalize().multiplyScalar(0.13);
+  g.children.forEach((m, k) => {
+    m.position.copy(p1).add(p2).multiplyScalar(0.5).addScaledVector(tmpS, k ? 1 : -1);
+    m.quaternion.setFromUnitVectors(Y, tmpD);
+    m.scale.set(1, len, 1);
+  });
+}
+
+// ---------- cama de guardanapo ----------
+function crumple(r, detail, seed, amp) {
+  const g = new THREE.IcosahedronGeometry(r, detail);
+  const p = g.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const n = v.clone().normalize();
+    const k = 1 + amp * (Math.sin(n.x * 7.1 + seed) * Math.sin(n.y * 6.3 + seed * 1.7) * Math.sin(n.z * 8.2 + seed * 0.6) + 0.5 * Math.sin(n.x * 15 + n.z * 13 + seed));
+    v.copy(n).multiplyScalar(r * k);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+const bedGroup = new THREE.Group(); rig.add(bedGroup);
+const ny = YB + 0.45, hub = new THREE.Vector3(0, ny, 0);
+[0, 1, 2].forEach(k => {
+  const mid = bottom[k].clone().add(bottom[(k + 1) % 3]).multiplyScalar(0.5).setY(ny);
+  const s = makeStrap(netMat); setStrap(s, mid, hub); bedGroup.add(s);
+});
+const bedMat = new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 1, flatShading: true });
+const bed = new THREE.Mesh(crumple(BED_R, 3, 4.2, 0.12), bedMat);
+bed.position.y = BED_Y; bed.scale.set(1, BED_SY, 1); bed.castShadow = bed.receiveShadow = true;
+bedGroup.add(bed);
+
+// ---------- casulo (ovo + guardanapo + arnês) ----------
+const cocoon = new THREE.Group(); rig.add(cocoon);
+const eggMat = new THREE.MeshStandardMaterial({ color: 0xe9cfa6, roughness: 0.55 });
+const egg = new THREE.Mesh((() => {
+  const g = new THREE.SphereGeometry(1, 40, 28), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i), k = 1 - 0.12 * y;
+    p.setXYZ(i, p.getX(i) * 2.2 * k, y * 2.85, p.getZ(i) * 2.2 * k);
+  }
+  g.computeVertexNormals(); return g;
+})(), eggMat);
+egg.castShadow = true; egg.renderOrder = 0;
+cocoon.add(egg);
+const cocoonMat = new THREE.MeshStandardMaterial({ color: 0xf7f5f0, roughness: 1, flatShading: true, transparent: true, opacity: 0.55, depthWrite: false });
+const wrap = new THREE.Mesh(crumple(R, 4, 1.3, 0.06), cocoonMat);
+wrap.renderOrder = 1; wrap.castShadow = true;
+cocoon.add(wrap);
+const harnessGeo = new THREE.TorusGeometry(R + 0.06, 0.07, 6, 56);
+const h1 = ring(harnessGeo, harnessMat), h2 = ring(harnessGeo, harnessMat); h2.rotation.y = Math.PI / 2;
+cocoon.add(h1, h2);
+
+// ---------- suspensão: 6 pares emendados ----------
+const CENTER = new THREE.Vector3(0, YC, 0);
+const knotGeo = new THREE.SphereGeometry(0.22, 10, 8);
+const susp = corners.map(c => {
+  const g = new THREE.Group(), s1 = makeStrap(suspMat), s2 = makeStrap(suspMat);
+  const knot = new THREE.Mesh(knotGeo, suspMat);
+  g.add(s1, s2, knot); rig.add(g);
+  return { g, s1, s2, knot, c, dir: c.clone().sub(CENTER).normalize() };
+});
+const tmpA = new THREE.Vector3(), tmpM = new THREE.Vector3();
+function updateSusp() {
+  susp.forEach(s => {
+    tmpA.copy(cocoon.position).addScaledVector(s.dir, R);
+    tmpM.copy(s.c).add(tmpA).multiplyScalar(0.5);
+    setStrap(s.s1, s.c, tmpM); setStrap(s.s2, tmpM, tmpA);
+    s.knot.position.copy(tmpM);
+  });
+}
+
+// ---------- poses ----------
+const SIDE = new THREE.Vector3(24, R, 0);
+const anim = { edges: 0, hang: 0 };
+let drop = null, bounce = null, camAnim = null;
+
+const NEW = [[eggMat, cocoonMat, harnessMat], [edgeMat, spliceMat], [cornerMat], [braceMat, braceBandMat], [netMat, bedMat], [suspMat], []];
+function applyVisibility() {
+  edges.forEach(e => e.g.visible = step >= 1);
+  cornerBands.visible = step >= 2;
+  braces.visible = step >= 3;
+  bedGroup.visible = step >= 4;
+  susp.forEach(s => s.g.visible = step >= 5);
+}
+function setStep(i) {
+  step = i; drop = bounce = null; rig.position.y = 0; bed.scale.y = BED_SY;
+  renderSteps(); applyVisibility();
+  $("dropBtn").disabled = false;
+  if (!camAnim) goCamera("close");
+}
+go = setStep;
+
+$("dropBtn").onclick = () => {
+  if (step < 6) setStep(6);
+  anim.edges = 1; anim.hang = 1;
+  bounce = null; bed.scale.y = BED_SY;
+  drop = { phase: "lift", t: 0, y: 0, v: 0 };
+  $("dropBtn").disabled = true;
+  goCamera("drop");
+};
+$("closeBtn").onclick = () => goCamera("close");
+
+function goCamera(kind) {
+  const tgt = kind === "close" ? CLOSE_TGT.clone() : new THREE.Vector3(0, 28, 0);
+  const pos = kind === "close" ? CLOSE_POS.clone() : new THREE.Vector3(66, 54, 86);
+  if (reduce) { controls.target.copy(tgt); camera.position.copy(pos); camAnim = null; return; }
+  camAnim = { t: 0, dur: 0.8, p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt };
+}
+controls.addEventListener("start", () => { camAnim = null; $("hint").hidden = true; });
+
+function pulse(time) {
+  const all = new Set(NEW.flat());
+  const on = new Set(NEW[step]);
+  const k = reduce ? 0.25 : 0.18 + 0.18 * Math.sin(time * 4.5);
+  all.forEach(m => { m.emissive.set(on.has(m) ? 0xffcc33 : 0x000000); m.emissiveIntensity = on.has(m) ? k : 0; });
+}
+
+const ease = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+const damp = (a, b, dt, r = 6) => a + (b - a) * (1 - Math.exp(-r * dt));
+const tmpP = new THREE.Vector3(), tmpQ = new THREE.Quaternion();
+
+// mola + amortecimento dos pares (mais macios que no cubo); a cama entra quando o casulo passa da folga
+const OM = 2 * Math.PI * 1.0, ZETA = 0.12, LIFT = 40, GV = 981 * 0.22;
+function tick(dt, time) {
+  const tE = step >= 2 ? 1 : 0, tH = step >= 5 ? 1 : 0;
+  anim.edges = reduce ? tE : damp(anim.edges, tE, dt, 4);
+  anim.hang = reduce ? tH : damp(anim.hang, tH, dt, 4);
+
+  edges.forEach(e => {
+    tmpP.lerpVectors(e.flat.p, e.cube.p, ease(anim.edges));
+    tmpQ.copy(e.flat.q).slerp(e.cube.q, ease(anim.edges));
+    e.g.position.copy(tmpP); e.g.quaternion.copy(tmpQ);
+  });
+  cornerBands.children.forEach(m => m.visible = anim.edges > 0.97);
+
+  let u = 0;
+  if (drop) {
+    drop.t += dt;
+    if (drop.phase === "lift") {
+      drop.y = LIFT * ease(Math.min(drop.t / 0.7, 1));
+      if (drop.t > 1.0) { drop.phase = "fall"; drop.t = 0; drop.v = 0; }
+    } else if (drop.phase === "fall") {
+      drop.v -= GV * dt; drop.y += drop.v * dt;
+      if (drop.y <= 0) { drop.y = 0; drop.phase = "hit"; bounce = { u: 0, v: -OM * (GAP + 0.8), t: 0 }; }
+    }
+    rig.position.y = drop.y;
+  }
+  if (bounce) {
+    const n = 8, sdt = dt * 0.5 / n;
+    for (let i = 0; i < n; i++) {
+      let a = -OM * OM * bounce.u - 2 * ZETA * OM * bounce.v;
+      if (bounce.u < -GAP) a += -40 * OM * OM * (bounce.u + GAP) - 8 * OM * bounce.v;
+      bounce.v += a * sdt; bounce.u += bounce.v * sdt;
+    }
+    bounce.t += dt;
+    u = bounce.u;
+    bed.scale.y = BED_SY * (1 - Math.min(0.6, Math.max(0, -GAP - u) / (2 * BED_R * BED_SY)));
+    if (bounce.t > 5) { bounce = null; drop = null; bed.scale.y = BED_SY; $("dropBtn").disabled = false; }
+  }
+
+  cocoon.position.lerpVectors(SIDE, CENTER, ease(anim.hang));
+  cocoon.position.y += u;
+  if (step >= 5) updateSusp();
+
+  if (camAnim) {
+    camAnim.t += dt;
+    const k = ease(Math.min(camAnim.t / camAnim.dur, 1));
+    camera.position.lerpVectors(camAnim.p0, camAnim.p1, k);
+    controls.target.lerpVectors(camAnim.t0, camAnim.t1, k);
+    if (k >= 1) camAnim = null;
+  }
+  pulse(time);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function resize() {
+  const w = stage.clientWidth, hh = stage.clientHeight;
+  renderer.setSize(w, hh, false); camera.aspect = w / hh; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+applyVisibility();
+let last = performance.now();
+renderer.setAnimationLoop(now => { const dt = Math.min((now - last) / 1000, 0.05); last = now; tick(dt, now / 1000); });
+})();
+</script>
+
+</body></html>

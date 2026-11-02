@@ -1,0 +1,653 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta charset="utf-8">
+<title>Ponte de Canudos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: bancada de trabalho — visor 3D à esquerda, passo atual à direita; abaixo, lista de corte, desenho da lateral e dicas. */
+:root {
+  --bg: #edf0f4;
+  --surface: #ffffff;
+  --ink: #1b2433;
+  --muted: #586276;
+  --line: #d3d9e3;
+  --tape: #d9a520;
+  --tape-ink: #6e5208;
+  --tape-soft: #fbf0cf;
+  --comp: #d2433b;
+  --tens: #2f6fd6;
+  --ok: #2f8a4e;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151d; --surface: #19202b; --ink: #e6ebf2; --muted: #98a3b6; --line: #2a3342;
+    --tape: #e6b93e; --tape-ink: #e6b93e; --tape-soft: #2d2711; --comp: #ef6a60; --tens: #6b9cf0; --ok: #5cc27e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151d; --surface: #19202b; --ink: #e6ebf2; --muted: #98a3b6; --line: #2a3342;
+  --tape: #e6b93e; --tape-ink: #e6b93e; --tape-soft: #2d2711; --comp: #ef6a60; --tens: #6b9cf0; --ok: #5cc27e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.55;
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: grid; gap: 36px;
+}
+header { display: grid; gap: 6px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(34px, 6vw, 56px); line-height: 1; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+h1 .accent { color: var(--tape-ink); }
+.lead { margin: 4px 0 0; max-width: 64ch; color: var(--muted); }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 24px; margin: 0 0 14px; text-wrap: balance; }
+
+.checks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.check { font-size: 14px; padding: 4px 10px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); }
+.check b { font-family: var(--f-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.check i { font-style: normal; color: var(--ok); font-weight: 700; margin-right: 4px; }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+
+.viewer { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.stage { position: relative; height: 500px; touch-action: none; }
+@media (max-width: 880px) { .stage { height: auto; aspect-ratio: 4 / 3.6; max-width: 100%; } }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.stage .hint { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--muted); pointer-events: none; }
+.stage .fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+.counters { position: absolute; top: 10px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.chip { font-family: var(--f-mono); font-size: 12px; padding: 3px 8px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chip.tape { background: var(--tape-soft); border-color: var(--tape); color: var(--tape-ink); }
+.legend { position: absolute; top: 10px; right: 12px; display: flex; gap: 10px; font-size: 12px; color: var(--muted); pointer-events: none; background: var(--surface); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 5px; vertical-align: middle; background: var(--c); }
+
+.controls { border-top: 1px solid var(--line); padding: 14px 16px 16px; display: grid; gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.slider { flex: 1 1 260px; display: grid; gap: 4px; min-width: 0; }
+.slider label { font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+.slider output { font-family: var(--f-mono); font-weight: 500; color: var(--tape-ink); }
+input[type=range] { width: 100%; accent-color: var(--tape); }
+.btn {
+  font: 700 15px/1 var(--f-body); padding: 12px 18px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+}
+.btn.primary { background: var(--tape); border-color: var(--tape); color: #2a1f00; }
+.btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.btn:hover { filter: brightness(1.05); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn:focus-visible, .step-btn:focus-visible, input:focus-visible { outline: 3px solid var(--tape); outline-offset: 2px; }
+.readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 480px) { .readout { grid-template-columns: minmax(0, 1fr); } }
+.readout div { background: var(--bg); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.readout span { display: block; font-size: 12px; color: var(--muted); }
+.readout b { font-family: var(--f-mono); font-weight: 500; font-size: 18px; font-variant-numeric: tabular-nums; }
+.readout .c b { color: var(--comp); }
+.readout .t b { color: var(--tens); }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+
+.steps { display: grid; gap: 12px; }
+.steps ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.step-btn {
+  width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px;
+  background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 10px; color: var(--ink); font: inherit;
+}
+.step-btn .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--f-mono); font-size: 14px; border: 1.5px solid var(--line); color: var(--muted);
+}
+.step-btn .t { font-weight: 700; padding-top: 3px; }
+.step-btn .body { grid-column: 2; display: none; color: var(--ink); }
+.step-btn .body p { margin: 4px 0 0; }
+.step-btn .tag { display: inline-block; margin-top: 8px; font-family: var(--f-mono); font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--tape-soft); color: var(--tape-ink); border: 1px solid var(--tape); }
+.step-btn.done .n { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.step-btn.active { background: var(--surface); border-color: var(--line); }
+.step-btn.active .n { background: var(--tape); border-color: var(--tape); color: #2a1f00; }
+.step-btn.active .body { display: block; }
+.step-nav { display: flex; gap: 8px; }
+.step-nav .btn { flex: 1; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 18px 8px; min-width: 0; }
+.cut { list-style: none; margin: 0; padding: 0; }
+.cut li { display: grid; grid-template-columns: 44px 92px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.cut li:first-child { border-top: 0; }
+.cut .q { font-family: var(--f-mono); font-size: 18px; color: var(--tape-ink); font-variant-numeric: tabular-nums; }
+.cut .len { font-family: var(--f-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.cut .use { min-width: 0; }
+.cut .use small { color: var(--muted); display: block; }
+.cut li.spare .q, .cut li.spare .len { color: var(--muted); }
+@media (max-width: 480px) { .cut li { grid-template-columns: 38px minmax(0, 1fr); } .cut .len { grid-column: 2; } .cut .use { grid-column: 2; } }
+
+.drawing { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; overflow-x: auto; }
+.drawing svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.drawing .cap { font-size: 13px; color: var(--muted); margin: 8px 4px 2px; }
+
+.tips { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.tip { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.tip h3 { margin: 0 0 6px; font-size: 16px; }
+.tip p { margin: 0; color: var(--muted); }
+.tip.key { border-color: var(--tape); background: var(--tape-soft); }
+.tip.key p { color: var(--ink); }
+
+.trouble { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 520px; }
+th, td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-size: 13px; color: var(--muted); font-weight: 700; }
+td:first-child { font-weight: 700; width: 38%; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Projeto · 43 de 48 canudos de papel (19,5 cm) · fita crepe</div>
+    <h1>Ponte de <span class="accent">Canudos</span></h1>
+    <p class="lead">Duas laterais em treliça com diagonais em X, ligadas por travessas. Sete passos, umas 2 horas. Clique em cada passo para ver as peças no modelo 3D. Arraste para girar, roda ou pinça para aproximar.</p>
+    <div class="checks" aria-label="Regras atendidas">
+      <span class="check"><i>✓</i>Comprimento <b>39 cm</b> (mín. 38)</span>
+      <span class="check"><i>✓</i>Largura <b>≈ 9 cm</b> (5 a 12)</span>
+      <span class="check"><i>✓</i>Altura <b>≈ 11 cm</b> (máx. 30)</span>
+      <span class="check"><i>✓</i>Vão <b>30 cm</b> entre apoios</span>
+      <span class="check"><i>✓</i>Sem assoalho</span>
+    </div>
+  </header>
+
+  <section class="bench" aria-label="Montagem">
+    <div class="viewer">
+      <div class="stage" id="stage">
+        <div class="counters">
+          <span class="chip tape" id="cStraws">canudos 0/48</span>
+        </div>
+        <div class="legend" id="legend" hidden>
+          <span style="--c: var(--comp)">compressão</span>
+          <span style="--c: var(--tens)">tração</span>
+        </div>
+        <div class="hint" id="hint">arraste para girar</div>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <div class="slider">
+            <label for="load">Peso na balança <output id="loadOut">3 kg</output></label>
+            <input type="range" id="load" min="0" max="10" step="0.5" value="3">
+          </div>
+          <button class="btn primary" id="forceBtn" type="button" aria-pressed="false">Mostrar forças</button>
+          <button class="btn" id="closeBtn" type="button">Ver de perto</button>
+        </div>
+        <div class="readout">
+          <div class="c"><span>Banzo de cima, por canudo</span><b id="rTop">–</b></div>
+          <div class="t"><span>Banzo de baixo, por canudo</span><b id="rBot">–</b></div>
+          <div><span>Diagonal mais carregada</span><b id="rDiag">–</b></div>
+        </div>
+        <p class="note">Forças calculadas para esta treliça (vão de 30 cm, altura de 10,35 cm entre eixos), em kg de força. Mostram onde a ponte trabalha mais. O peso de colapso depende das emendas de fita, então só o teste diz.</p>
+      </div>
+    </div>
+
+    <div class="steps">
+      <ol id="stepList"></ol>
+      <div class="step-nav">
+        <button class="btn" id="prevBtn" type="button">← Anterior</button>
+        <button class="btn primary" id="nextBtn" type="button">Próximo →</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hDraw">
+    <h2 id="hDraw">Desenho da lateral</h2>
+    <div class="drawing">
+      <svg id="elev" role="img" aria-label="Vista lateral da treliça com medidas"></svg>
+      <p class="cap">Desenhe assim em tamanho real numa folha A3 (ou 2 folhas A4 coladas) e monte as duas laterais em cima. ● marca onde um canudo encosta no outro: sempre num nó, nunca no meio do quadro.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="hCut">
+    <h2 id="hCut">Lista de corte</h2>
+    <div class="card">
+      <ul class="cut">
+        <li><span class="q">4</span><span class="len">inteiros</span><span class="use"><b>Banzo de baixo, linha 1.</b> 2 por lateral, emendados no centro.<small>sem sobra</small></span></li>
+        <li><span class="q">4</span><span class="len">12 cm</span><span class="use"><b>Pontas do banzo de baixo, linha 2.</b><small>sobra 7,5 cm → pontas do banzo de cima, linha 2</small></span></li>
+        <li><span class="q">8</span><span class="len">15 cm</span><span class="use"><b>Meio do banzo de baixo (2) e banzo de cima (6).</b><small>sobra 4,5 cm → reforço do nó central</small></span></li>
+        <li><span class="q">5</span><span class="len">9,75 cm</span><span class="use"><b>Montantes.</b> Corte ao meio: dá 10 peças, 5 por lateral.<small>sem sobra</small></span></li>
+        <li><span class="q">18</span><span class="len">12,5 cm</span><span class="use"><b>Diagonais em X (16) e portais das pontas (2).</b><small>sobra 7 cm → as 11 travessas</small></span></li>
+        <li><span class="q">4</span><span class="len">10,3 cm</span><span class="use"><b>Zigue-zague do topo.</b><small>sobra 9 cm → reserva</small></span></li>
+        <li class="spare"><span class="q">5</span><span class="len">reserva</span><span class="use">Para canudo amassado ou corte errado.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="hTips">
+    <h2 id="hTips">Para aguentar mais peso</h2>
+    <div class="tips">
+      <div class="tip key"><h3>Emenda só no nó</h3><p>Canudo encostado no meio do quadro vira dobradiça e o banzo de cima entorta. As emendas das duas linhas ficam em nós diferentes.</p></div>
+      <div class="tip"><h3>Fita firme, canudo redondo</h3><p>Tiras de uns 8 cm, 2 voltas, cruzadas em X no nó. Aperte sem amassar: canudo achatado perde quase toda a força.</p></div>
+      <div class="tip"><h3>Reforce o centro</h3><p>O lápis apoia no nó central de baixo. Cole as sobras de 4,5 cm em volta desse nó, nas duas laterais, antes do teste.</p></div>
+      <div class="tip"><h3>As duas laterais iguais</h3><p>Monte as duas em cima do mesmo desenho. Se uma for mais alta, ela pega quase todo o peso e quebra antes.</p></div>
+      <div class="tip"><h3>Peso devagar</h3><p>Ponha cada peso com a mão e solte devagar. Um tranco pesa o dobro por um instante.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hTrouble">
+    <h2 id="hTrouble">Se der errado</h2>
+    <div class="trouble">
+      <table>
+        <thead><tr><th>O que acontece</th><th>Conserto</th></tr></thead>
+        <tbody>
+          <tr><td>A ponte tomba ou torce para o lado</td><td>Confira o zigue-zague do topo e os 2 portais das pontas. São eles que impedem a torção.</td></tr>
+          <tr><td>O banzo de cima entorta para fora</td><td>Falta travessa ou ela soltou. Refaça a fita da travessa naquele nó.</td></tr>
+          <tr><td>Um nó escorrega</td><td>Fita em X com mais uma volta. Se o canudo amassou ali, troque a peça por uma de reserva.</td></tr>
+          <tr><td>O nó central esmaga sob o lápis</td><td>Faltou reforço. Cole as sobras de 4,5 cm em volta do nó e encoste o lápis no montante.</td></tr>
+          <tr><td>A ponte ficou com menos de 38 cm</td><td>As pontas do banzo de baixo encolheram na emenda. Mantenha 39 cm de ponta a ponta antes de passar fita.</td></tr>
+          <tr><td>Ficou mais larga que 12 cm</td><td>As travessas são de 7 cm de eixo a eixo. Não deixe as laterais abrirem ao colar.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const STEPS = [
+  { t: "Banzo de baixo", tag: "5 canudos · lateral 1",
+    b: ["Desenhe a lateral em tamanho real (desenho abaixo).", "Linha 1: 2 canudos inteiros, emendados no centro. Linha 2: 12 + 15 + 12 cm. Deite as duas lado a lado sobre o desenho: 39 cm.", "Fita em cada nó: no centro, a 7,5 cm, a 15 cm e nas pontas."] },
+  { t: "Montantes e banzo de cima", tag: "+6 canudos · lateral 1",
+    b: ["Cole 5 montantes de 9,75 cm em pé: no centro, a 7,5 cm e a 15 cm de cada lado. Os de 15 cm ficam bem na beira das mesas.", "Banzo de cima (30 cm, 2 linhas): linha 1 = 15 + 15. Linha 2 = 7,5 + 15 + 7,5. Prenda no topo dos montantes."] },
+  { t: "Diagonais em X", tag: "+8 canudos · lateral 1",
+    b: ["Em cada um dos 4 quadros, 2 diagonais de 12,5 cm formando um X: uma na frente, outra atrás.", "Fita em X em cada ponta. A lateral 1 está pronta."] },
+  { t: "Lateral 2", tag: "+18 canudos",
+    b: ["Repita os passos 1 a 3 em cima do mesmo desenho.", "Coloque uma sobre a outra para conferir: têm que ficar iguais."] },
+  { t: "Una as laterais", tag: "11 travessas de 7 cm · sobras",
+    b: ["Deixe as laterais em pé, 7 cm uma da outra.", "Travessas de 7 cm: 5 no topo, uma em cada montante. 6 embaixo: nas pontas, a 15 cm e a 7,5 cm.", "O centro de baixo fica livre: é por ali que passa a balança."] },
+  { t: "Trave contra torção", tag: "+6 canudos",
+    b: ["No topo, 4 diagonais de 10,3 cm em zigue-zague entre as travessas.", "Nas duas pontas, sobre os apoios: 1 diagonal de 12,5 cm de canto a canto, do topo de uma lateral à base da outra.", "Cole as sobras de 4,5 cm em volta do nó central de baixo."] },
+  { t: "Teste", tag: "lápis + balança",
+    b: ["Coloque a ponte sobre os apoios: 4,5 cm de cada lado em cima da mesa, 30 cm de vão.", "Passe o lápis atravessado no centro, em cima do banzo de baixo, encostado nos montantes centrais.", "Pendure a balança no lápis e acrescente peso devagar até o colapso."] },
+];
+const STRAWS_AT = [5, 11, 19, 37, 37, 43, 43];
+let step = 0;
+
+const $ = id => document.getElementById(id);
+const list = $("stepList");
+STEPS.forEach((s, i) => {
+  const li = document.createElement("li");
+  li.innerHTML = `<button class="step-btn" type="button" id="step${i}"><span class="n">${i + 1}</span><span class="t">${s.t}</span><span class="body">${s.b.map(p => `<p>${p}</p>`).join("")}<span class="tag">${s.tag}</span></span></button>`;
+  li.firstChild.addEventListener("click", () => go(i));
+  list.appendChild(li);
+});
+let go = i => { step = i; renderSteps(); };
+$("prevBtn").onclick = () => go(Math.max(0, step - 1));
+$("nextBtn").onclick = () => go(Math.min(STEPS.length - 1, step + 1));
+
+function renderSteps() {
+  STEPS.forEach((_, i) => {
+    const b = $("step" + i);
+    b.classList.toggle("active", i === step);
+    b.classList.toggle("done", i < step);
+    b.setAttribute("aria-current", i === step ? "step" : "false");
+  });
+  $("cStraws").textContent = `canudos ${STRAWS_AT[step]}/48`;
+  $("prevBtn").disabled = step === 0;
+  $("nextBtn").disabled = step === STEPS.length - 1;
+}
+
+// ---------- geometria (cm), x ao longo da ponte com 0 no centro ----------
+const R = 0.3, H = 10.35, Z = 3.5, HALF = 19.5, SUP = 15;
+const NX = [-15, -7.5, 0, 7.5, 15];
+const yB = R, yT = R + H;
+
+// ---------- treliça plana (rigidez direta), carga P/2 no nó central de baixo de cada lateral ----------
+const NODES = NX.map(x => [x, 0]).concat(NX.map(x => [x, H]));
+const MEM = [];
+for (let i = 0; i < 4; i++) {
+  MEM.push({ a: i, b: i + 1, ea: 2, k: "bc" }, { a: 5 + i, b: 6 + i, ea: 2, k: "tc" });
+  MEM.push({ a: i, b: 6 + i, ea: 1, k: "d" }, { a: 5 + i, b: i + 1, ea: 1, k: "d" });
+}
+for (let i = 0; i < 5; i++) MEM.push({ a: i, b: 5 + i, ea: 1, k: "v" });
+function solveTruss(load) {
+  const n = NODES.length * 2, K = Array.from({ length: n }, () => new Float64Array(n)), f = new Float64Array(n);
+  MEM.forEach(m => {
+    const [x1, y1] = NODES[m.a], [x2, y2] = NODES[m.b];
+    const L = Math.hypot(x2 - x1, y2 - y1), c = (x2 - x1) / L, s = (y2 - y1) / L, k = m.ea / L;
+    Object.assign(m, { L, c, s, kk: k });
+    const d = [2 * m.a, 2 * m.a + 1, 2 * m.b, 2 * m.b + 1], v = [-c, -s, c, s];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) K[d[i]][d[j]] += k * v[i] * v[j];
+  });
+  f[2 * 2 + 1] = -load;
+  const free = [...Array(n).keys()].filter(i => i !== 0 && i !== 1 && i !== 9);
+  const A = free.map(i => free.map(j => K[i][j])), bb = free.map(i => f[i]);
+  for (let p = 0; p < A.length; p++) {
+    let mx = p; for (let r = p + 1; r < A.length; r++) if (Math.abs(A[r][p]) > Math.abs(A[mx][p])) mx = r;
+    [A[p], A[mx]] = [A[mx], A[p]]; [bb[p], bb[mx]] = [bb[mx], bb[p]];
+    for (let r = p + 1; r < A.length; r++) { const q = A[r][p] / A[p][p]; for (let c = p; c < A.length; c++) A[r][c] -= q * A[p][c]; bb[r] -= q * bb[p]; }
+  }
+  const x = new Array(A.length).fill(0);
+  for (let r = A.length - 1; r >= 0; r--) { let s = bb[r]; for (let c = r + 1; c < A.length; c++) s -= A[r][c] * x[c]; x[r] = s / A[r][r]; }
+  const u = new Float64Array(n); free.forEach((g, i) => u[g] = x[i]);
+  return MEM.map(m => m.kk * ((u[2 * m.b] - u[2 * m.a]) * m.c + (u[2 * m.b + 1] - u[2 * m.a + 1]) * m.s));
+}
+const UNIT = solveTruss(0.5); // forças por lateral para 1 kg na balança (positivo = tração)
+
+let kg = 3;
+const fmt = (n, dg = 1) => n.toLocaleString("pt-BR", { maximumFractionDigits: dg, minimumFractionDigits: dg });
+function updateReadout() {
+  $("loadOut").textContent = fmt(kg, kg % 1 ? 1 : 0) + " kg";
+  const by = k => MEM.map((m, i) => m.k === k ? UNIT[i] * kg : 0);
+  const top = Math.min(...by("tc")), bot = Math.max(...by("bc")), dia = Math.max(...by("d").map(Math.abs));
+  $("rTop").textContent = fmt(-top / 2, 2) + " kg";
+  $("rBot").textContent = fmt(bot / 2, 2) + " kg";
+  $("rDiag").textContent = fmt(dia, 2) + " kg";
+}
+renderSteps(); updateReadout();
+
+// ---------- desenho da lateral (SVG) ----------
+(() => {
+  const S = 20, ox = 24 + HALF * S, oy = 300, W = 2 * ox + 90, svg = $("elev");
+  const P = (x, y) => `${(ox + x * S).toFixed(1)},${(oy - y * S).toFixed(1)}`;
+  const ln = (x1, y1, x2, y2, cls) => `<line class="${cls}" x1="${ox + x1 * S}" y1="${oy - y1 * S}" x2="${ox + x2 * S}" y2="${oy - y2 * S}"/>`;
+  const tx = (x, y, s, a = "middle", cls = "lbl") => `<text class="${cls}" x="${ox + x * S}" y="${oy - y * S}" text-anchor="${a}">${s}</text>`;
+  let g = "";
+  g += `<rect class="sup" x="0" y="${oy + 6}" width="${ox - SUP * S}" height="14"/><rect class="sup" x="${ox + SUP * S}" y="${oy + 6}" width="${ox - SUP * S}" height="14"/>`;
+  g += ln(-HALF, 0, HALF, 0, "chord") + ln(-SUP, H, SUP, H, "chord");
+  NX.forEach(x => g += ln(x, 0, x, H, "web"));
+  for (let i = 0; i < 4; i++) g += ln(NX[i], 0, NX[i + 1], H, "web") + ln(NX[i], H, NX[i + 1], 0, "web");
+  NX.forEach(x => { g += `<circle class="node" cx="${ox + x * S}" cy="${oy}" r="4"/><circle class="node" cx="${ox + x * S}" cy="${oy - H * S}" r="4"/>`; });
+  [[0, 0], [-7.5, 0], [7.5, 0], [0, H], [-7.5, H], [7.5, H]].forEach(([x, y]) => g += `<circle class="splice" cx="${ox + x * S}" cy="${oy - y * S + (y ? -11 : 11)}" r="4"/>`);
+  // cotas
+  const dim = (x1, x2, y, s) => ln(x1, y, x2, y, "dim") + ln(x1, y - 0.25, x1, y + 0.25, "dim") + ln(x2, y - 0.25, x2, y + 0.25, "dim") + tx((x1 + x2) / 2, y + 0.35, s);
+  g += dim(-HALF, HALF, H + 2.6, "39 cm de ponta a ponta");
+  g += dim(-SUP, SUP, -3.6, "vão de 30 cm entre os apoios");
+  g += dim(-HALF, -SUP, -1.9, "4,5") + dim(SUP, HALF, -1.9, "4,5");
+  for (let i = 0; i < 4; i++) g += tx((NX[i] + NX[i + 1]) / 2, H + 0.9, "7,5", "middle", "lbl sm");
+  g += ln(HALF + 0.6, 0, HALF + 0.6, H, "dim") + tx(HALF + 0.9, H / 2 + 0.6, "10,35", "start") + tx(HALF + 0.9, H / 2 - 0.4, "eixo a eixo", "start", "lbl sm");
+  g += tx(-11.25 + 0.5, H / 2 - 1.6, "diagonal 12,5", "middle", "lbl sm") + tx(-SUP - 0.35, H / 2, "montante 9,75", "end", "lbl sm");
+  g += tx(0.4, 0.9, "← lápis aqui", "start", "lbl sm accent");
+  svg.setAttribute("viewBox", `0 0 ${W} ${oy + 3.8 * S + 8}`);
+  svg.innerHTML = `<style>
+    .chord{stroke:var(--ink);stroke-width:7;stroke-linecap:round}
+    .web{stroke:var(--muted);stroke-width:4;stroke-linecap:round}
+    .node{fill:var(--tape);stroke:var(--surface);stroke-width:1.5}
+    .splice{fill:var(--ink)}
+    .dim{stroke:var(--muted);stroke-width:1}
+    .sup{fill:var(--line)}
+    .lbl{fill:var(--ink);font:500 13px var(--f-mono);paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+    .lbl.sm{font-size:11px;fill:var(--muted)}
+    .lbl.accent{fill:var(--tape-ink)}
+  </style>` + g;
+})();
+
+const stage = $("stage");
+if (!window.THREE) {
+  const f = document.createElement("div"); f.className = "fallback";
+  f.textContent = "O modelo 3D não carregou. Os passos à direita continuam valendo.";
+  stage.appendChild(f);
+  $("load").oninput = e => { kg = +e.target.value; updateReadout(); };
+  return;
+}
+
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+stage.prepend(renderer.domElement);
+renderer.domElement.setAttribute("role", "img");
+renderer.domElement.setAttribute("aria-label", "Modelo 3D da ponte de canudos de papel");
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 2000);
+const CLOSE = { pos: new THREE.Vector3(30, 22, 44), tgt: new THREE.Vector3(0, 3, 0) };
+const TEST = { pos: new THREE.Vector3(42, 10, 86), tgt: new THREE.Vector3(0, -6, 0) };
+camera.position.copy(CLOSE.pos);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.copy(CLOSE.tgt);
+controls.enableDamping = true;
+controls.minDistance = 12; controls.maxDistance = 220;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+sun.position.set(20, 50, 30); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 1, far: 160 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const FLOOR = -42;
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 300), new THREE.ShadowMaterial({ opacity: 0.16 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = FLOOR; ground.receiveShadow = true;
+scene.add(ground);
+let grid;
+const supMat = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+function themeColors() {
+  if (grid) scene.remove(grid);
+  grid = new THREE.GridHelper(200, 40, new THREE.Color(cssv("--muted")), new THREE.Color(cssv("--line")));
+  grid.position.y = FLOOR + 0.01; grid.material.transparent = true; grid.material.opacity = 0.6;
+  scene.add(grid);
+  supMat.color.set(cssv("--line"));
+}
+themeColors();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeColors);
+new MutationObserver(themeColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// apoios: duas mesas/blocos com 30 cm de vão
+[-1, 1].forEach(sg => {
+  const w = 22, m = new THREE.Mesh(new THREE.BoxGeometry(w, -FLOOR, 26), supMat);
+  m.position.set(sg * (SUP + w / 2), FLOOR / 2, 0); m.receiveShadow = m.castShadow = true; scene.add(m);
+});
+
+// canudo de papel: listras em espiral
+const stripeImg = (() => {
+  const c = document.createElement("canvas"); c.width = 64; c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = "#f7f4ee"; g.fillRect(0, 0, 64, 128);
+  g.fillStyle = "#3f86c9";
+  for (let k = -2; k < 4; k++) { g.beginPath(); g.moveTo(0, k * 48); g.lineTo(64, k * 48 + 40); g.lineTo(64, k * 48 + 56); g.lineTo(0, k * 48 + 16); g.fill(); }
+  return c;
+})();
+const UP = new THREE.Vector3(0, 1, 0);
+const allMats = new Set();
+function strawMat(len) {
+  const t = new THREE.CanvasTexture(stripeImg);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, len / 2.6); t.encoding = THREE.sRGBEncoding;
+  const m = new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 });
+  allMats.add(m); return m;
+}
+function cyl(a, b, r, mat, seg = 14) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A), len = d.length();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg), mat || strawMat(len));
+  m.position.copy(A).add(B).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(UP, d.normalize());
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+const straw = (a, b) => cyl(a, b, R, null);
+const tapeMat = new THREE.MeshStandardMaterial({ color: 0xe3cf98, roughness: 0.95 });
+allMats.add(tapeMat);
+const tapeGeo = new THREE.BoxGeometry(0.9, 2 * R + 0.12, 4 * R + 0.12);
+function tape(x, y, z) { const m = new THREE.Mesh(tapeGeo, tapeMat); m.position.set(x, y, z); m.castShadow = true; return m; }
+
+// grupos por passo
+const G = Array.from({ length: 7 }, () => { const g = new THREE.Group(); scene.add(g); return g; });
+const gap = 0.04;
+function lateral(zc, g0, g1, g2) {
+  const s = Math.sign(zc);
+  // banzo de baixo
+  [[-HALF, 0], [0, HALF]].forEach(([a, b]) => g0.add(straw([a + gap, yB, zc - R], [b - gap, yB, zc - R])));
+  [[-HALF, -7.5], [-7.5, 7.5], [7.5, HALF]].forEach(([a, b]) => g0.add(straw([a + gap, yB, zc + R], [b - gap, yB, zc + R])));
+  [-HALF + 0.5, ...NX, HALF - 0.5].forEach(x => g0.add(tape(x, yB, zc)));
+  // montantes + banzo de cima
+  NX.forEach(x => g1.add(straw([x, 2 * R, zc], [x, yT - R, zc])));
+  [[-SUP, 0], [0, SUP]].forEach(([a, b]) => g1.add(straw([a + gap, yT, zc - R], [b - gap, yT, zc - R])));
+  [[-SUP, -7.5], [-7.5, 7.5], [7.5, SUP]].forEach(([a, b]) => g1.add(straw([a + gap, yT, zc + R], [b - gap, yT, zc + R])));
+  NX.forEach(x => g1.add(tape(x, yT, zc)));
+  // diagonais em X: uma na face de fora, outra na de dentro
+  const zo = zc + s * 2.6 * R, zi = zc - s * 2.6 * R;
+  for (let i = 0; i < 4; i++) {
+    g2.add(straw([NX[i] + 0.3, yB + 0.2, zo], [NX[i + 1] - 0.3, yT - 0.2, zo]));
+    g2.add(straw([NX[i] + 0.3, yT - 0.2, zi], [NX[i + 1] - 0.3, yB + 0.2, zi]));
+  }
+}
+const A1 = G[0], A2 = G[1], A3 = G[2];
+lateral(-Z, A1, A2, A3);
+const B1 = new THREE.Group(), B2 = new THREE.Group(), B3 = new THREE.Group();
+G[3].add(B1, B2, B3);
+lateral(Z, B1, B2, B3);
+
+// travessas de 7 cm deitadas por cima dos banzos
+NX.forEach(x => G[4].add(straw([x + 0.75, yT + 2 * R, -Z], [x + 0.75, yT + 2 * R, Z])));
+[-HALF + 0.6, -SUP + 0.75, -7.5 + 0.75, 7.5 - 0.75, SUP - 0.75, HALF - 0.6].forEach(x => G[4].add(straw([x, yB + 2 * R, -Z], [x, yB + 2 * R, Z])));
+// zigue-zague do topo + portais nas pontas + reforço central
+for (let i = 0; i < 4; i++) {
+  const za = i % 2 ? Z : -Z;
+  G[5].add(straw([NX[i] + 0.75, yT + 4 * R, za], [NX[i + 1] + 0.75, yT + 4 * R, -za]));
+}
+[-1, 1].forEach(sg => G[5].add(straw([sg * (SUP + 0.75), yT - 0.2, -sg * Z], [sg * (SUP + 0.75), yB + 0.2, sg * Z])));
+[-Z, Z].forEach(zc => [-1, 1].forEach(sg => G[5].add(straw([sg * 0.45, yB + 0.1, zc + Math.sign(zc) * 0.05 - Math.sign(zc) * 2.6 * R], [sg * 2.4, yB + 2.4, zc - Math.sign(zc) * 2.6 * R]))));
+
+// lápis + balança + pesos
+const pencilX = 0.8, pencilY = 2 * R + 0.38;
+(() => {
+  const g = G[6];
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 15, 6), new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.55 }));
+  body.rotation.x = Math.PI / 2; body.position.set(pencilX, pencilY, -0.5);
+  const wood = new THREE.Mesh(new THREE.ConeGeometry(0.38, 1.6, 6), new THREE.MeshStandardMaterial({ color: 0xe3b57a, roughness: 0.8 }));
+  wood.rotation.x = Math.PI / 2; wood.position.set(pencilX, pencilY, 7.8);
+  const er = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 1, 16), new THREE.MeshStandardMaterial({ color: 0xe48aa0, roughness: 0.7 }));
+  er.rotation.x = Math.PI / 2; er.position.set(pencilX, pencilY, -8.5);
+  [body, wood, er].forEach(m => { m.castShadow = true; g.add(m); });
+})();
+const scaleMat = new THREE.MeshStandardMaterial({ color: 0x2c3a52, roughness: 0.5 });
+const ironMat = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.4, metalness: 0.5 });
+const cordMat = new THREE.MeshStandardMaterial({ color: 0x8b8f98, roughness: 0.9 });
+const hang = new THREE.Group(); G[6].add(hang);
+const SCALE_Y = -9, TRAY_Y = -24;
+(() => {
+  hang.add(cyl([pencilX, pencilY, 0], [pencilX, SCALE_Y + 3, 0], 0.06, cordMat, 6));
+  const box = new THREE.Mesh(new THREE.BoxGeometry(3.2, 6, 1.4), scaleMat); box.position.set(pencilX, SCALE_Y, 0); box.castShadow = true; hang.add(box);
+  const dial = new THREE.Mesh(new THREE.CircleGeometry(1.1, 32), new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.6 }));
+  dial.position.set(pencilX, SCALE_Y + 0.8, 0.71); hang.add(dial);
+  hang.add(cyl([pencilX, SCALE_Y - 3, 0], [pencilX, TRAY_Y, 0], 0.12, ironMat, 8));
+  const tray = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 0.3, 40), ironMat); tray.position.set(pencilX, TRAY_Y, 0); tray.castShadow = true; hang.add(tray);
+})();
+const discs = new THREE.Group(); hang.add(discs);
+const discMat = new THREE.MeshStandardMaterial({ color: 0x3b3f47, roughness: 0.6, metalness: 0.3 });
+function buildDiscs() {
+  discs.children.forEach(c => c.geometry.dispose()); discs.clear();
+  let y = TRAY_Y + 0.15;
+  const whole = Math.floor(kg), half = kg % 1 > 0;
+  for (let i = 0; i < whole + (half ? 1 : 0); i++) {
+    const h = i < whole ? 1.1 : 0.55;
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, h - 0.08, 40), discMat);
+    ring.position.set(pencilX, y + h / 2, 0); ring.castShadow = true; discs.add(ring); y += h;
+  }
+}
+buildDiscs();
+
+// sobreposição de forças (uma barra por barra da treliça, nas duas laterais)
+const forceGroup = new THREE.Group(); forceGroup.visible = false; scene.add(forceGroup);
+const forceBars = [];
+[-Z, Z].forEach(zc => MEM.forEach((m, i) => {
+  const [x1, y1] = NODES[m.a], [x2, y2] = NODES[m.b];
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.6 });
+  const off = m.k === "d" ? (MEM.filter(q => q.k === "d").indexOf(m) % 2 ? -1 : 1) * Math.sign(zc) * 2.6 * R : 0;
+  const bar = cyl([x1, y1 + yB, zc + off], [x2, y2 + yB, zc + off], m.ea === 2 ? 0.55 : 0.4, mat, 12);
+  forceGroup.add(bar); forceBars.push({ bar, i });
+}));
+[-Z, Z].forEach(zc => [[-HALF, -SUP], [SUP, HALF]].forEach(([a, b]) => {
+  const m = cyl([a, yB, zc], [b, yB, zc], 0.55, new THREE.MeshStandardMaterial({ color: 0x9aa3b2, roughness: 0.6 }), 12); forceGroup.add(m);
+}));
+const REF = 4; // kg de força para cor cheia
+function paintForces() {
+  const comp = new THREE.Color(cssv("--comp")), tens = new THREE.Color(cssv("--tens")), idle = new THREE.Color(0x9aa3b2);
+  forceBars.forEach(({ bar, i }) => {
+    const F = UNIT[i] * kg, t = Math.min(Math.abs(F) / REF, 1);
+    bar.material.color.copy(idle).lerp(F < 0 ? comp : tens, Math.abs(F) < 0.02 ? 0 : 0.25 + 0.75 * t);
+  });
+}
+
+// ---------- estado ----------
+let forceMode = false, camAnim = null;
+function applyVisibility() {
+  // G[0..3] são as laterais: no modo forças viram as barras coloridas
+  G.forEach((g, i) => g.visible = step >= i && !(forceMode && i < 4));
+  forceGroup.visible = forceMode;
+  $("legend").hidden = !forceMode;
+}
+function setStep(i) {
+  step = i; renderSteps();
+  if (forceMode && step < 6) setForce(false);
+  applyVisibility();
+  goCamera(step === 6 ? TEST : CLOSE);
+}
+go = setStep;
+function setForce(on) {
+  forceMode = on;
+  $("forceBtn").setAttribute("aria-pressed", String(on));
+  $("forceBtn").textContent = on ? "Esconder forças" : "Mostrar forças";
+  if (on && step < 6) { step = 6; renderSteps(); goCamera(TEST); }
+  paintForces(); applyVisibility();
+}
+$("forceBtn").onclick = () => setForce(!forceMode);
+$("load").oninput = e => {
+  kg = +e.target.value; updateReadout(); buildDiscs(); paintForces();
+  if (step < 6) setStep(6);
+};
+$("closeBtn").onclick = () => goCamera(CLOSE);
+
+function goCamera(v) {
+  if (reduce) { controls.target.copy(v.tgt); camera.position.copy(v.pos); camAnim = null; return; }
+  camAnim = { t: 0, dur: 0.8, p0: camera.position.clone(), t0: controls.target.clone(), p1: v.pos, t1: v.tgt };
+}
+controls.addEventListener("start", () => { camAnim = null; $("hint").hidden = true; });
+
+// destaque das peças do passo atual
+const NEW = G.map(g => { const s = new Set(); g.traverse(o => o.material && s.add(o.material)); return s; });
+function pulse(time) {
+  const k = reduce ? 0.22 : 0.14 + 0.14 * Math.sin(time * 4.5);
+  allMats.forEach(m => { m.emissive.set(0x000000); m.emissiveIntensity = 0; });
+  if (forceMode) return;
+  NEW[step].forEach(m => { if (!m.emissive) return; m.emissive.set(0xffc233); m.emissiveIntensity = k; });
+}
+
+const ease = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+function tick(dt, time) {
+  if (camAnim) {
+    camAnim.t += dt;
+    const k = ease(Math.min(camAnim.t / camAnim.dur, 1));
+    camera.position.lerpVectors(camAnim.p0, camAnim.p1, k);
+    controls.target.lerpVectors(camAnim.t0, camAnim.t1, k);
+    if (k >= 1) camAnim = null;
+  }
+  pulse(time);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+applyVisibility(); paintForces();
+let last = performance.now();
+renderer.setAnimationLoop(now => { const dt = Math.min((now - last) / 1000, 0.05); last = now; tick(dt, now / 1000); });
+})();
+</script>
+
+</body></html>
